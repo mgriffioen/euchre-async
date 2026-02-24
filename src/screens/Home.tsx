@@ -73,7 +73,7 @@ export default function Home() {
         <div style={{ padding: 12, borderRadius: 10, border: "1px solid #f5c2c7", background: "#f8d7da" }}>
           {error}
         </div>
-      )}
+        )}
 
       <div style={{ marginBottom: 12 }}>
         <input
@@ -111,7 +111,7 @@ export default function Home() {
         For now we use the Firestore document id as the join code. We’ll add short codes later.
       </p>
     </div>
-  );
+    );
 }
 
 const btnStyle: React.CSSProperties = {
