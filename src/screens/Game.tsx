@@ -156,6 +156,18 @@ function isLeftBower(code: CardCode, trump: Suit): boolean {
   return isJack(code) && suitCharFromCard(code) === leftBowerSuit(trump);
 }
 
+function hasSuitInHand(hand: CardCode[], suit: Suit, trump: Suit): boolean {
+  return hand.some((c) => effectiveSuit(c, trump) === suit);
+}
+
+function removeOneCard(hand: CardCode[], code: CardCode): CardCode[] {
+  const idx = hand.indexOf(code);
+  if (idx === -1) return hand;
+  const next = hand.slice();
+  next.splice(idx, 1);
+  return next;
+}
+
 function trickStrength(code: CardCode, leadSuit: Suit, trump: Suit): number {
   // Higher number = stronger
   if (isRightBower(code, trump)) return 200;
@@ -379,40 +391,41 @@ export default function Game() {
    * ==========================================================
    */
 
-  /** Claim a seat (THIS WAS BROKEN in your file; fixed now). */
+  /** Claim a seat */
   async function claimSeat(seat: Seat) {
-    if (!gameRef || !uid || !gameId) return;
+  if (!gameRef || !uid || !gameId) return;
 
-    try {
-      await runTransaction(db, async (tx) => {
-        const snap = await tx.get(gameRef);
-        if (!snap.exists()) throw new Error("Game missing");
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(gameRef);
+      if (!snap.exists()) throw new Error("Game missing");
 
-        const data = snap.data() as GameDoc;
+      const data = snap.data() as GameDoc;
 
-        if (data.seats[seat]) throw new Error("Seat already taken");
-        if (Object.values(data.seats).includes(uid)) throw new Error("You already claimed a seat");
+      if (data.seats[seat]) throw new Error("Seat already taken");
+      if (Object.values(data.seats).includes(uid))
+        throw new Error("You already claimed a seat");
 
-        tx.update(gameRef, {
-          [`seats.${seat}`]: uid,
-          updatedAt: serverTimestamp(),
-        });
+      tx.update(gameRef, {
+        [`seats.${seat}`]: uid,
+        updatedAt: serverTimestamp(),
       });
+    });
 
-      await setDoc(
-        doc(db, "games", gameId, "players", uid),
-        {
-          uid,
-          name: localStorage.getItem("playerName") || "Player",
-          seat,
-          joinedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-    } catch (e: any) {
-      setErr(e?.message ?? String(e));
-    }
+    await setDoc(
+      doc(db, "games", gameId, "players", uid),
+      {
+        uid,
+        name: localStorage.getItem("playerName") || "Player",
+        seat,
+        joinedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (e: any) {
+    setErr(e?.message ?? String(e));
   }
+}
 
   /** Deal a new hand and start bidding round 1. */
   async function startHand() {
@@ -520,39 +533,41 @@ export default function Game() {
     });
   }
 
-  /** Round 1: order up => go to dealer_discard (FIXED) */
-  async function bidOrderUp() {
-    if (!gameRef || !game || !mySeat) return;
-    if (game.phase !== "bidding_round_1") return;
-    if (game.turn !== mySeat) return;
-    if (!game.upcard) return;
+  /** Round 1: order up => go to dealer_discard */
+async function bidOrderUp() {
+  if (!gameRef || !game || !mySeat) return;
+  if (game.phase !== "bidding_round_1") return;
+  if (game.turn !== mySeat) return;
+  if (!game.upcard) return;
 
-    await runTransaction(db, async (tx) => {
-      const snap = await tx.get(gameRef);
-      if (!snap.exists()) throw new Error("Game missing");
-      const g = snap.data() as GameDoc;
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(gameRef);
+    if (!snap.exists()) throw new Error("Game missing");
+    const g = snap.data() as GameDoc;
 
-      if (g.phase !== "bidding_round_1") return;
-      if (g.turn !== mySeat) return;
-      if (!g.upcard) return;
+    if (g.phase !== "bidding_round_1") return;
+    if (g.turn !== mySeat) return;
+    if (!g.upcard) return;
 
-      const trump = suitCharFromCard(g.upcard);
+    const trump = suitCharFromCard(g.upcard);
 
-      tx.update(gameRef, {
-        status: "bidding",
-        phase: "dealer_discard",
-        trump,
-        makerSeat: mySeat,
-        bidding: {
-          round: 1,
-          passes: g.bidding?.passes ?? [],
-          orderedUpBy: mySeat,
-        },
-        updatedAt: serverTimestamp(),
-        turn: g.dealer, // dealer must act now
-      });
+    tx.update(gameRef, {
+      status: "bidding",
+      phase: "dealer_discard",
+      trump,
+      makerSeat: mySeat,
+      bidding: {
+        round: 1,
+        passes: g.bidding?.passes ?? [],
+        orderedUpBy: mySeat,
+      },
+      updatedAt: serverTimestamp(),
+
+      // dealer must act now
+      turn: g.dealer,
     });
-  }
+  });
+}
 
   async function bidPassRound2() {
     if (!gameRef || !game || !mySeat) return;
@@ -694,6 +709,151 @@ export default function Game() {
       setErr(e?.message ?? String(e));
     }
   }
+
+  async function playCard(code: CardCode) {
+  if (!gameRef || !gameId || !game || !uid || !mySeat) return;
+  if (game.phase !== "playing") return;
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const gameSnap = await tx.get(gameRef);
+      if (!gameSnap.exists()) throw new Error("Game missing");
+      const g = gameSnap.data() as GameDoc;
+
+      if (g.phase !== "playing") return;
+      if (g.turn !== mySeat) return;
+      if (!g.trump) throw new Error("Trump not set");
+
+      const trump = g.trump;
+
+      const playerRef = doc(db, "games", gameId, "players", uid);
+      const playerSnap = await tx.get(playerRef);
+      if (!playerSnap.exists()) throw new Error("Player doc missing");
+
+      const p = playerSnap.data() as PlayerDoc;
+      const hand = (p.hand ?? []) as CardCode[];
+
+      if (!hand.includes(code)) throw new Error("Card not in hand");
+
+      const trick = g.currentTrick;
+      const existingCards = trick?.cards ?? {};
+      if (existingCards[mySeat]) throw new Error("You already played this trick");
+
+      const isNewTrick = !trick || Object.keys(existingCards).length === 0;
+
+      const leadSeat: Seat = isNewTrick ? mySeat : (trick!.leadSeat as Seat);
+      const leadSuit: Suit = isNewTrick
+        ? effectiveSuit(code, trump)
+        : (trick!.leadSuit as Suit); // should be non-null once trick started
+
+      // Follow-suit enforcement (only if not leading)
+      if (!isNewTrick) {
+        const mustFollow = hasSuitInHand(hand, leadSuit, trump);
+        if (mustFollow) {
+          const eff = effectiveSuit(code, trump);
+          if (eff !== leadSuit) {
+            throw new Error("Must follow suit");
+          }
+        }
+      }
+
+      // Remove card from hand
+      const nextHand = removeOneCard(hand, code);
+
+      // Add card to trick
+      const nextCards: Partial<Record<Seat, CardCode>> = {
+        ...existingCards,
+        [mySeat]: code,
+      };
+
+      const nextTrickNumber = trick?.trickNumber ?? 1;
+
+      // If trick completes (4 cards), score it and start next trick / end hand
+      const seatsPlayed = Object.keys(nextCards).length;
+
+      if (seatsPlayed === 4) {
+        const winner = winnerOfTrick(nextCards, leadSeat, trump, leadSuit);
+
+        const prevTaken = g.tricksTaken ?? { NS: 0, EW: 0 };
+        const winTeam = teamOf(winner);
+
+        const nextTaken = {
+          NS: prevTaken.NS + (winTeam === "NS" ? 1 : 0),
+          EW: prevTaken.EW + (winTeam === "EW" ? 1 : 0),
+        };
+
+        const prevWinners = (g.trickWinners ?? []) as Seat[];
+        const nextWinners = [...prevWinners, winner];
+
+        // End of hand after 5 tricks (no scoring to points yet)
+        if (nextTrickNumber >= 5) {
+          tx.update(playerRef, { hand: nextHand, updatedAt: serverTimestamp() });
+
+          tx.update(gameRef, {
+            updatedAt: serverTimestamp(),
+
+            // keep these for display / debugging
+            tricksTaken: nextTaken,
+            trickWinners: nextWinners,
+
+            // clear trick
+            currentTrick: null,
+
+            // hand is over — you can decide later what this should become
+            status: "lobby",
+            phase: "lobby",
+
+            // optional cleanup so the next deal is clean
+            upcard: null,
+            kitty: null,
+            trump: null,
+            makerSeat: null,
+            bidding: null,
+          });
+
+          return;
+        }
+
+        // Start next trick (winner leads)
+        tx.update(playerRef, { hand: nextHand, updatedAt: serverTimestamp() });
+
+        tx.update(gameRef, {
+          updatedAt: serverTimestamp(),
+          tricksTaken: nextTaken,
+          trickWinners: nextWinners,
+          currentTrick: {
+            trickNumber: nextTrickNumber + 1,
+            leadSeat: winner,
+            leadSuit: null,
+            cards: {},
+          },
+          turn: winner,
+        });
+
+        return;
+      }
+
+      // Trick not complete yet → advance to next seat
+      tx.update(playerRef, { hand: nextHand, updatedAt: serverTimestamp() });
+
+      tx.update(gameRef, {
+        updatedAt: serverTimestamp(),
+        currentTrick: {
+          trickNumber: nextTrickNumber,
+          leadSeat,
+          leadSuit,
+          cards: nextCards,
+        },
+        turn: nextSeat(g.turn),
+      });
+    });
+
+    setErr(null);
+    setSelectedCard(null);
+  } catch (e: any) {
+    setErr(e?.message ?? String(e));
+  }
+}
 
   /**
    * ==========================================================
@@ -1016,6 +1176,49 @@ export default function Game() {
             </div>
           </div>
 
+          {game.phase === "playing" && (
+            <div style={{ ...cardStyle, marginTop: 12 }}>
+              <h4 style={{ marginTop: 0 }}>Current Trick</h4>
+
+              <div style={{ marginBottom: 8, color: "#555" }}>
+                Trick #{game.currentTrick?.trickNumber ?? 1}
+                {game.tricksTaken && (
+                  <span style={{ marginLeft: 10 }}>
+                    Taken: NS {game.tricksTaken.NS} — EW {game.tricksTaken.EW}
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+                {(SEATS as Seat[]).map((realSeat) => {
+                  const played = game.currentTrick?.cards?.[realSeat];
+                  const label = displaySeat(realSeat);
+
+                  return (
+                    <div key={realSeat} style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 12, color: "#555", marginBottom: 6 }}>{label}</div>
+                      {played ? (
+                        (() => {
+                          const { rank, suit } = parseCard(played as CardCode);
+                          return (
+                            <Card
+                              rank={rankLabel(rank)}
+                              suit={suitSymbol(suit)}
+                              selected={false}
+                              onClick={() => {}}
+                            />
+                          );
+                        })()
+                      ) : (
+                        <div style={{ height: 64, border: "1px dashed #ccc", borderRadius: 12 }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Hand */}
           <h4 style={{ marginTop: 24 }}>Your Hand</h4>
           <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
@@ -1028,9 +1231,15 @@ export default function Game() {
                   suit={suitSymbol(suit)}
                   selected={selectedCard === i}
                   onClick={() => {
-  if (game?.phase === "dealer_discard") return; // dealer uses the 6-card row above
-  setSelectedCard(selectedCard === i ? null : i);
-}}
+                    if (game?.phase === "dealer_discard") return;
+
+                    if (game?.phase === "playing" && isMyTurn) {
+                      playCard(code);
+                      return;
+                    }
+
+                    setSelectedCard(selectedCard === i ? null : i);
+                  }}
                 />
               );
             })}
