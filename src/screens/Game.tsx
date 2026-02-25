@@ -301,6 +301,38 @@ export default function Game() {
     return players[seatUid]?.name || "Taken";
   };
 
+  const playableInfo = useMemo(() => {
+  // Default: everything clickable unless it’s your playing turn.
+  if (!game || game.phase !== "playing" || !isMyTurn || !mySeat || !game.trump) {
+    return { mustFollow: null as Suit | null, playableSet: null as Set<CardCode> | null };
+  }
+
+  const trump = game.trump;
+  const trick = game.currentTrick;
+  const cards = trick?.cards ?? {};
+  const trickStarted = Object.keys(cards).length > 0;
+  const leadSuit = trickStarted ? (trick?.leadSuit ?? null) : null;
+
+  // If you’re leading (no lead suit yet), you can play anything.
+  if (!leadSuit) {
+    return { mustFollow: null, playableSet: null };
+  }
+
+  const mustFollow = hasSuitInHand(myHand, leadSuit, trump) ? leadSuit : null;
+
+  // If you must follow, only those cards are legal. Otherwise all are legal.
+  if (!mustFollow) {
+    return { mustFollow: null, playableSet: null };
+  }
+
+  const playable = new Set<CardCode>();
+  myHand.forEach((c) => {
+    if (effectiveSuit(c, trump) === mustFollow) playable.add(c);
+  });
+
+  return { mustFollow, playableSet: playable };
+}, [game, isMyTurn, mySeat, myHand]);
+
   /**
    * ==========================================================
    * Effects
@@ -1148,27 +1180,50 @@ export default function Game() {
           <h4 style={{ marginTop: 24 }}>Your Hand</h4>
           <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
             {myHand.map((code, i) => {
-              const { rank, suit } = parseCard(code);
-              return (
-                <Card
-                  key={code + i}
-                  rank={rankLabel(rank)}
-                  suit={suitSymbol(suit)}
-                  selected={selectedCard === i}
-                  onClick={() => {
-                    if (game.phase === "playing" && isMyTurn) {
-                      playCard(code);
-                      return;
-                    }
-                    if (game.phase === "dealer_discard") {
-                      setSelectedCard(selectedCard === i ? null : i);
-                      return;
-                    }
-                    setSelectedCard(selectedCard === i ? null : i);
-                  }}
-                />
-              );
-            })}
+  const { rank, suit } = parseCard(code);
+
+  const isPlayingTurn = game?.phase === "playing" && isMyTurn;
+  const mustFollow = playableInfo.mustFollow;
+  const playableSet = playableInfo.playableSet;
+
+  // If playableSet is null, everything is playable (or we’re not in restricted mode)
+  const isPlayable =
+    !isPlayingTurn || !playableSet ? true : playableSet.has(code);
+
+  return (
+    <div
+      key={code + i}
+      style={{
+        opacity: isPlayable ? 1 : 0.35,
+        pointerEvents: isPlayable ? "auto" : "none",
+        transition: "opacity 120ms ease",
+      }}
+      title={!isPlayable && mustFollow ? `Must follow ${mustFollow}` : undefined}
+    >
+      <Card
+        rank={rankLabel(rank)}
+        suit={suitSymbol(suit)}
+        selected={selectedCard === i}
+        onClick={() => {
+          // Dealer discard: still uses selection
+          if (game?.phase === "dealer_discard") {
+            setSelectedCard(selectedCard === i ? null : i);
+            return;
+          }
+
+          // Playing: click plays immediately
+          if (game?.phase === "playing" && isMyTurn) {
+            playCard(code);
+            return;
+          }
+
+          // Other phases: selection only
+          setSelectedCard(selectedCard === i ? null : i);
+        }}
+      />
+    </div>
+  );
+})}
           </div>
         </>
       )}
