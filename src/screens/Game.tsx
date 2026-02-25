@@ -96,26 +96,6 @@ export default function Game() {
     | undefined) ?? null)
   : null;
 
-  async function dealTestHand() {
-    if (!gameId || !uid) return;
-
-    const playerRef = doc(db, "games", gameId, "players", uid);
-
-    const hand: CardCode[] = ["AS", "KH", "QC", "JD", "TS"];
-
-    await setDoc(
-      playerRef,
-      {
-        uid,
-        name: localStorage.getItem("playerName") || "Player",
-        seat: mySeat ?? "N",
-        joinedAt: serverTimestamp(),
-        hand,
-      },
-      { merge: true }
-      );
-  }
-
   const [players, setPlayers] = useState<Record<string, PlayerDoc>>({});
 
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
@@ -255,19 +235,20 @@ export default function Game() {
       const playerRef = doc(db, "games", gameId, "players", seatUid);
 
       batch.set(
-        playerRef,
-        {
-          uid: seatUid,
-          name: players[seatUid]?.name ?? "Player",
-          seat: s,
-          hand: hands[s],
-          joinedAt: serverTimestamp(),
-        },
-        { merge: true }
-        );
+        playerRef, { 
+          hand: hands[s], 
+          seat: s }, 
+          { merge: true }
+          );
     }
 
-    async function bidPass() {
+
+
+    await batch.commit();
+    setErr(null);
+  }
+
+  async function bidPass() {
       if (!gameRef || !game || !mySeat) return;
       if (game.phase !== "bidding_round_1") return;
       if (game.turn !== mySeat) return;
@@ -342,10 +323,6 @@ export default function Game() {
       });
     }
 
-    await batch.commit();
-    setErr(null);
-  }
-
   const url = typeof window !== "undefined" ? window.location.href : "";
 
   return (
@@ -363,9 +340,6 @@ export default function Game() {
             <input readOnly value={url} style={shareStyle} />
           </div>
         </div>
-        <button onClick={dealTestHand} style={{ ...btnStyle, marginBottom: 12 }}>
-          Deal Test Hand (me)
-        </button>
         <button
           onClick={startHand}
           disabled={!game || mySeat !== "N"}
@@ -457,7 +431,7 @@ export default function Game() {
                   disabled={game.turn !== mySeat}
                   style={{ ...btnStyle, flex: 1, padding: "14px 14px" }}
                 >
-                  Order Up
+                  Pick It Up, bruh
                 </button>
 
                 <button
