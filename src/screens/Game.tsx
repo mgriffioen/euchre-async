@@ -1345,15 +1345,39 @@ function SeatCard(props: {
   const { seat, label, isYou, isTurn, teamLabel, canClaim, playedCard, onClaim } = props;
 
   return (
-    <div
-      style={{
-        ...cardStyle,
-        borderColor: isTurn ? "#0a7" : "#ddd",
-        boxShadow: isTurn ? "0 0 0 2px rgba(0,170,119,0.15)" : undefined,
-      }}
-    >
+    <div style={{...cardStyle, borderColor: isTurn ? "#0a7" : "#ddd", boxShadow: isTurn ? "0 0 0 2px rgba(0,170,119,0.15)" : undefined, }} >
 
-      <div style={{ marginTop: 8, color: "#555" }}>{label}</div>
+      <div style={{ marginTop: 8 }}>
+        <div style={{ color: "#555" }}>{label}</div>
+
+        {teamLabel ? (
+          <div style={{ marginTop: 6 }}>
+            <span
+              style={{
+                fontSize: 12,
+                padding: "2px 8px",
+                borderRadius: 999,
+                border: "1px solid #ddd",
+                display: "inline-block",
+                lineHeight: 1.4,
+
+        // subtle team tint
+                background:
+                teamLabel === "Team A"
+            ? "rgba(66, 133, 244, 0.12)" // soft blue
+            : "rgba(15, 157, 88, 0.12)", // soft green
+
+            color:
+            teamLabel === "Team A"
+            ? "#2b5fb8"
+            : "#0a7a46",
+          }}
+        >
+          {teamLabel}
+        </span>
+      </div>
+      ) : null}
+      </div>
 
       {playedCard ? (
         <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
@@ -1365,19 +1389,19 @@ function SeatCard(props: {
                 suit={suitSymbol(suit)}
                 selected={false}
                 onClick={() => {}}
-              />
-            );
+                />
+                );
           })()}
         </div>
-      ) : null}
+        ) : null}
 
       {canClaim && (
         <button onClick={onClaim} style={{ ...btnStyle, marginTop: 10, width: "100%" }}>
           Claim
         </button>
-      )}
+        )}
     </div>
-  );
+    );
 }
 
 /**
