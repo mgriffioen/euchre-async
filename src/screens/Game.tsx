@@ -6,7 +6,6 @@ import {
   onSnapshot,
   runTransaction,
   serverTimestamp,
-  setDoc,
   writeBatch,
 } from "firebase/firestore";
 
@@ -26,6 +25,9 @@ import { createEuchreDeck, shuffle } from "../lib/deal";
 
 type Seat = "N" | "E" | "S" | "W";
 
+type Suit = "S" | "H" | "D" | "C";
+const SUITS: Suit[] = ["S", "H", "D", "C"];
+
 const SEATS: Seat[] = ["N", "E", "S", "W"];
 
 function nextSeat(seat: Seat): Seat {
@@ -33,16 +35,18 @@ function nextSeat(seat: Seat): Seat {
   return SEATS[(i + 1) % SEATS.length];
 }
 
-function suitCharFromCard(code: CardCode): "S" | "H" | "D" | "C" {
-  return code[1] as any;
+function suitCharFromCard(code: CardCode): Suit {
+  return code[1] as Suit;
 }
+
+type GamePhase = "lobby" | "bidding_round_1" | "bidding_round_2" | "playing";
 
 type GameDoc = {
   /** Legacy-ish high-level state. We’re migrating toward `phase`. */
   status: string;
 
   /** Phase state machine (so UI + rules stay predictable). */
-  phase?: "lobby" | "bidding_round_1" | "bidding_round_2" | "playing";
+  phase?: GamePhase;
 
   /** Seat map: each seat stores the player’s UID (or null if open). */
   seats: Record<Seat, string | null>;
@@ -55,11 +59,11 @@ type GameDoc = {
 
   upcard?: CardCode;
   kitty?: CardCode[];
-  trump?: "S" | "H" | "D" | "C" | null;
+  trump?: Suit | null;
   makerSeat?: Seat | null;
 
   bidding?: {
-    round: number;
+    round: 1 | 2;
     passes: Seat[];
     orderedUpBy: Seat | null;
   };
@@ -77,7 +81,7 @@ type PlayerDoc = {
  * ==========================================================
  * Game Screen
  * - Owns realtime subscriptions for the game + players + my hand
- * - Provides actions for claiming seats, dealing, and bidding round 1
+ * - Provides actions for claiming seats, dealing, and bidding
  * ==========================================================
  */
 export default function Game() {
@@ -116,7 +120,27 @@ export default function Game() {
       ? ((Object.entries(game.seats).find(([, v]) => v === uid)?.[0] as Seat | undefined) ?? null)
       : null;
 
+  const isMyTurn = !!uid && !!game && game.turn === mySeat;
+
+  const turnName =
+    game?.turn && game.seats[game.turn]
+      ? players[game.seats[game.turn] as string]?.name || game.turn
+      : game?.turn;
+
   const url = typeof window !== "undefined" ? window.location.href : "";
+
+  const upcardSuit: Suit | null = game?.upcard ? suitCharFromCard(game.upcard) : null;
+
+  const round2AllowedSuits: Suit[] = upcardSuit
+    ? SUITS.filter((s) => s !== upcardSuit)
+    : SUITS;
+
+  const isDealerStuck: boolean =
+    !!game &&
+    game.phase === "bidding_round_2" &&
+    game.bidding?.round === 2 &&
+    game.bidding?.passes?.length === 3 &&
+    game.turn === game.dealer;
 
   /**
    * ----------------------------------------------------------
@@ -246,26 +270,6 @@ export default function Game() {
     }
   }
 
-  /** Debug button: deals a hard-coded hand to *me* only. */
-  async function dealTestHand() {
-    if (!gameId || !uid) return;
-
-    const playerRef = doc(db, "games", gameId, "players", uid);
-    const hand: CardCode[] = ["AS", "KH", "QC", "JD", "TS"];
-
-    await setDoc(
-      playerRef,
-      {
-        uid,
-        name: localStorage.getItem("playerName") || "Player",
-        seat: mySeat ?? "N",
-        hand,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-  }
-
   /** Start a hand: shuffle, deal 5 cards each, set upcard/kitty, enter bidding round 1. */
   async function startHand() {
     if (!gameId || !uid || !gameRef || !game) return;
@@ -306,7 +310,7 @@ export default function Game() {
 
     batch.update(gameRef, {
       status: "bidding",
-      phase: "bidding_round_1",
+      phase: "bidding_round_1" satisfies GamePhase,
       bidding: { round: 1, passes: [], orderedUpBy: null },
       trump: null,
       makerSeat: null,
@@ -342,7 +346,7 @@ export default function Game() {
   }
 
   /** Bidding round 1: current player passes */
-  async function bidPass() {
+  async function bidPassRound1() {
     if (!gameRef || !game || !mySeat) return;
     if (game.phase !== "bidding_round_1") return;
     if (game.turn !== mySeat) return;
@@ -358,12 +362,13 @@ export default function Game() {
       const passes = g.bidding?.passes ?? [];
       const nextPasses = passes.includes(mySeat) ? passes : [...passes, mySeat];
 
-      // Everyone passed -> enter round 2 (we’ll implement next)
+      // Everyone passed -> enter round 2 and reset passes.
       if (nextPasses.length >= 4) {
         tx.update(gameRef, {
           phase: "bidding_round_2",
           bidding: { round: 2, passes: [], orderedUpBy: null },
           updatedAt: serverTimestamp(),
+          // Round 2 starts again left of dealer
           turn: nextSeat(g.dealer),
         });
         return;
@@ -413,6 +418,98 @@ export default function Game() {
   }
 
   /**
+   * Bidding round 2 ("screw the dealer")
+   * - Players may name any suit except the upcard suit.
+   * - If the first three players pass, the dealer is forced to choose.
+   */
+  async function bidPassRound2() {
+    if (!gameRef || !game || !mySeat) return;
+    if (game.phase !== "bidding_round_2") return;
+    if (game.turn !== mySeat) return;
+
+    // Dealer is not allowed to pass when they are stuck.
+    if (mySeat === game.dealer) {
+      setErr("Screw the dealer: dealer must choose a trump suit.");
+      return;
+    }
+
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(gameRef);
+      if (!snap.exists()) throw new Error("Game missing");
+      const g = snap.data() as GameDoc;
+
+      if (g.phase !== "bidding_round_2") return;
+      if (g.turn !== mySeat) return;
+
+      // If dealer somehow got the turn here, don’t allow passing.
+      if (mySeat === g.dealer) return;
+
+      const passes = g.bidding?.passes ?? [];
+      const nextPasses = passes.includes(mySeat) ? passes : [...passes, mySeat];
+
+      // After 3 passes (everyone except dealer), force dealer turn.
+      if (nextPasses.length >= 3) {
+        tx.update(gameRef, {
+          bidding: { round: 2, passes: nextPasses, orderedUpBy: null },
+          updatedAt: serverTimestamp(),
+          turn: g.dealer,
+        });
+        return;
+      }
+
+      tx.update(gameRef, {
+        bidding: { round: 2, passes: nextPasses, orderedUpBy: null },
+        updatedAt: serverTimestamp(),
+        turn: nextSeat(g.turn),
+      });
+    });
+  }
+
+  /**
+   * Bidding round 2: call trump (any suit except upcard suit)
+   * - Works for any player on their turn
+   * - Also used by the dealer when they are "stuck"
+   */
+  async function bidCallTrump(suit: Suit) {
+    if (!gameRef || !game || !mySeat) return;
+    if (game.phase !== "bidding_round_2") return;
+    if (game.turn !== mySeat) return;
+    if (!game.upcard) return;
+
+    const forbidden = suitCharFromCard(game.upcard);
+    if (suit === forbidden) {
+      setErr("You can’t choose the upcard suit in round 2.");
+      return;
+    }
+
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(gameRef);
+      if (!snap.exists()) throw new Error("Game missing");
+      const g = snap.data() as GameDoc;
+
+      if (g.phase !== "bidding_round_2") return;
+      if (g.turn !== mySeat) return;
+      if (!g.upcard) return;
+
+      const forbiddenSuit = suitCharFromCard(g.upcard);
+      if (suit === forbiddenSuit) return;
+
+      tx.update(gameRef, {
+        phase: "playing",
+        trump: suit,
+        makerSeat: mySeat,
+        bidding: {
+          round: 2,
+          passes: g.bidding?.passes ?? [],
+          orderedUpBy: null,
+        },
+        updatedAt: serverTimestamp(),
+        turn: nextSeat(g.dealer),
+      });
+    });
+  }
+
+  /**
    * ==========================================================
    * Render
    * ==========================================================
@@ -433,11 +530,6 @@ export default function Game() {
         </div>
       </div>
 
-      {/* Debug-only button */}
-      <button onClick={dealTestHand} style={{ ...btnStyle, marginBottom: 12 }}>
-        Deal Test Hand (me)
-      </button>
-
       {/* Host-only for now: N starts the hand */}
       <button
         onClick={startHand}
@@ -451,6 +543,43 @@ export default function Game() {
         <p>Loading…</p>
       ) : (
         <>
+
+        {/* Turn Banner */}
+        {game && (
+          <div
+            style={{
+              padding: 12,
+              borderRadius: 12,
+              marginBottom: 12,
+              background: isMyTurn ? "#d1e7dd" : "#f8f9fa",
+              border: `1px solid ${isMyTurn ? "#badbcc" : "#ddd"}`,
+              fontWeight: 600,
+            }}
+          >
+            {game.phase?.startsWith("bidding") ? (
+              isMyTurn ? (
+                <>
+                🟢 {game.phase === "bidding_round_2" &&
+                (game as any).bidding?.passes?.length === 3 &&
+                mySeat === game.dealer
+                ? "Dealer must choose trump"
+                : "Your turn to bid"}
+                </>
+                ) : (
+                <>⏳ Waiting for {turnName} to bid…</>
+                )
+                ) : game.phase === "playing" ? (
+                isMyTurn ? (
+                  <>🟢 Your turn</>
+                  ) : (
+                  <>⏳ Waiting for {turnName}…</>
+                  )
+                  ) : (
+                  <>Waiting…</>
+                  )}
+                </div>
+                )}
+
           {/* Public/shared game summary */}
           <div style={cardStyle}>
             <div>
@@ -472,11 +601,38 @@ export default function Game() {
               <b>Score:</b> NS {game.score.NS} — EW {game.score.EW}
             </div>
 
-            {game.upcard && (
-              <div style={{ marginTop: 8 }}>
-                <b>Upcard:</b> {game.upcard}
+            {/* Upcard during bidding */}
+            {(game as any).upcard && game.phase !== "playing" && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ marginBottom: 10 }}>
+                  <b>Upcard:</b>
+                </div>
+
+                {(() => {
+                  const { rank, suit } = parseCard((game as any).upcard);
+                  return (
+                    <Card
+                      rank={rankLabel(rank)}
+                      suit={suitSymbol(suit)}
+                      selected={false}
+                      onClick={() => {}}
+                      />
+                      );
+                })()}
               </div>
-            )}
+              )}
+
+            {/* Trump once bidding is complete */}
+            {game.phase === "playing" && (game as any).trump && (
+              <div style={{ marginTop: 10 }}>
+                <b>Trump:</b> {suitSymbol((game as any).trump)}
+                {(game as any).makerSeat && (
+                  <span style={{ marginLeft: 8, color: "#555" }}>
+                    (maker: {(game as any).makerSeat})
+                  </span>
+                  )}
+              </div>
+              )}
           </div>
 
           {/* Bidding UI (Round 1) */}
@@ -488,14 +644,60 @@ export default function Game() {
                 <b>Current turn:</b> {game.turn}
               </div>
 
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={bidOrderUp} disabled={mySeat !== game.turn} style={btnStyle}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={bidOrderUp} disabled={mySeat !== game.turn} style={{ ...btnStyle, flex: 1 }}>
                   Order Up
                 </button>
-                <button onClick={bidPass} disabled={mySeat !== game.turn} style={btnStyle}>
+                <button onClick={bidPassRound1} disabled={mySeat !== game.turn} style={{ ...btnStyle, flex: 1 }}>
                   Pass
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Bidding UI (Round 2) — Screw the dealer */}
+          {game.phase === "bidding_round_2" && (
+            <div style={{ ...cardStyle, marginTop: 12 }}>
+              <h4 style={{ marginTop: 0 }}>Bidding (Round 2)</h4>
+
+              <div style={{ marginBottom: 8 }}>
+                <b>Current turn:</b> {game.turn}
+                {isDealerStuck ? <span style={{ marginLeft: 8, color: "#b00" }}>(dealer must choose)</span> : null}
+              </div>
+
+              <div style={{ marginBottom: 10, color: "#555" }}>
+                Choose trump (cannot be the upcard suit{upcardSuit ? ` ${suitSymbol(upcardSuit)}` : ""}).
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                {round2AllowedSuits.map((suit) => (
+                  <button
+                    key={suit}
+                    onClick={() => bidCallTrump(suit)}
+                    disabled={mySeat !== game.turn}
+                    style={{ ...btnStyle, padding: "12px 10px" }}
+                  >
+                    {suitSymbol(suit)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Only show Pass if it is NOT the forced dealer turn */}
+              {!isDealerStuck && (
+                <button
+                  onClick={bidPassRound2}
+                  disabled={mySeat !== game.turn}
+                  style={{ ...btnStyle, width: "100%", marginTop: 10 }}
+                >
+                  Pass
+                </button>
+              )}
+
+              {isDealerStuck && (
+                <div style={{ marginTop: 10, fontSize: 13, color: "#b00" }}>
+                  Screw the dealer: you can’t pass here.
+                </div>
+              )}
             </div>
           )}
 
