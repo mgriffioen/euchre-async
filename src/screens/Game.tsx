@@ -59,6 +59,16 @@ type GameDoc = {
     passes: Seat[];
     orderedUpBy: Seat | null;
   };
+
+  currentTrick?: {
+  trickNumber: number;
+  leadSeat: Seat;
+  leadSuit: Suit | null;
+  cards: Partial<Record<Seat, CardCode>>;
+};
+
+tricksTaken?: { NS: number; EW: number };  // per hand
+trickWinners?: Seat[];                      // length up to 5 (real seats)
 };
 
 type PlayerDoc = {
@@ -102,6 +112,88 @@ function rotationOffsetToMakeMySeatSouth(my: Seat): number {
 function realToDisplaySeat(real: Seat, my: Seat): Seat {
   const off = rotationOffsetToMakeMySeatSouth(my);
   return SEATS[(seatIndex(real) + off) % 4];
+}
+
+function teamOf(seat: Seat): "NS" | "EW" {
+  return seat === "N" || seat === "S" ? "NS" : "EW";
+}
+
+type Rank = ReturnType<typeof parseCard>["rank"];
+
+function sameColor(a: Suit, b: Suit) {
+  const red = (s: Suit) => s === "H" || s === "D";
+  return red(a) === red(b);
+}
+
+function leftBowerSuit(trump: Suit): Suit {
+  // trump H -> left bower is JD (D)
+  // trump D -> JH (H)
+  // trump S -> JC (C)
+  // trump C -> JS (S)
+  if (trump === "H") return "D";
+  if (trump === "D") return "H";
+  if (trump === "S") return "C";
+  return "S";
+}
+
+function isJack(code: CardCode) {
+  const { rank } = parseCard(code);
+  return rankLabel(rank) === "J";
+}
+
+function effectiveSuit(code: CardCode, trump: Suit): Suit {
+  const s = suitCharFromCard(code);
+  // left bower becomes trump suit
+  if (isJack(code) && s === leftBowerSuit(trump)) return trump;
+  return s;
+}
+
+function isRightBower(code: CardCode, trump: Suit): boolean {
+  return isJack(code) && suitCharFromCard(code) === trump;
+}
+
+function isLeftBower(code: CardCode, trump: Suit): boolean {
+  return isJack(code) && suitCharFromCard(code) === leftBowerSuit(trump);
+}
+
+function trickStrength(code: CardCode, leadSuit: Suit, trump: Suit): number {
+  // Higher number = stronger
+  if (isRightBower(code, trump)) return 200;
+  if (isLeftBower(code, trump)) return 199;
+
+  const eff = effectiveSuit(code, trump);
+  const { rank } = parseCard(code);
+
+  // Trump beats everything else
+  if (eff === trump) return 150 + rank;
+
+  // Must follow lead suit to compete
+  if (eff === leadSuit) return 100 + rank;
+
+  // Off-suit non-trump loses
+  return 0 + rank;
+}
+
+function winnerOfTrick(
+  cards: Partial<Record<Seat, CardCode>>,
+  leadSeat: Seat,
+  trump: Suit,
+  leadSuit: Suit
+): Seat {
+  let bestSeat = leadSeat;
+  let bestScore = -1;
+
+  (Object.keys(cards) as Seat[]).forEach((seat) => {
+    const c = cards[seat];
+    if (!c) return;
+    const s = trickStrength(c, leadSuit, trump);
+    if (s > bestScore) {
+      bestScore = s;
+      bestSeat = seat;
+    }
+  });
+
+  return bestSeat;
 }
 
 /**
