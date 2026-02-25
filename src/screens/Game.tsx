@@ -1142,7 +1142,25 @@ return (
                       isYou={mySeat === displaySeats.N}
                       canClaim={!!uid && !game?.seats[displaySeats.N] && !mySeat}
                       onClaim={() => claimSeat(displaySeats.N)}
+                      playedCard={game.phase === "playing"
+                      ? (game.currentTrick?.cards?.[displaySeats.N] ?? null)
+                      : null}
                     />
+                    {playedCard ? (
+                      <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
+                        {(() => {
+                          const { rank, suit } = parseCard(playedCard);
+                          return (
+                            <Card
+                              rank={rankLabel(rank)}
+                              suit={suitSymbol(suit)}
+                              selected={false}
+                              onClick={() => {}}
+                              />
+                              );
+                        })()}
+                      </div>
+                      ) : null}
                   </div>
 
                   <div style={{ gridColumn: "1 / 2", gridRow: "2 / 3" }}>
@@ -1152,7 +1170,25 @@ return (
                       isYou={mySeat === displaySeats.W}
                       canClaim={!!uid && !game?.seats[displaySeats.W] && !mySeat}
                       onClaim={() => claimSeat(displaySeats.W)}
+                      playedCard={game.phase === "playing"
+                      ? (game.currentTrick?.cards?.[displaySeats.W] ?? null)
+                      : null}
                     />
+                    {playedCard ? (
+                      <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
+                        {(() => {
+                          const { rank, suit } = parseCard(playedCard);
+                          return (
+                            <Card
+                              rank={rankLabel(rank)}
+                              suit={suitSymbol(suit)}
+                              selected={false}
+                              onClick={() => {}}
+                              />
+                              );
+                        })()}
+                      </div>
+                      ) : null}
                   </div>
 
                   <div style={{ gridColumn: "3 / 4", gridRow: "2 / 3" }}>
@@ -1162,7 +1198,25 @@ return (
                       isYou={mySeat === displaySeats.E}
                       canClaim={!!uid && !game?.seats[displaySeats.E] && !mySeat}
                       onClaim={() => claimSeat(displaySeats.E)}
+                      playedCard={game.phase === "playing"
+                      ? (game.currentTrick?.cards?.[displaySeats.E] ?? null)
+                      : null}
                     />
+                    {playedCard ? (
+                      <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
+                        {(() => {
+                          const { rank, suit } = parseCard(playedCard);
+                          return (
+                            <Card
+                              rank={rankLabel(rank)}
+                              suit={suitSymbol(suit)}
+                              selected={false}
+                              onClick={() => {}}
+                              />
+                              );
+                        })()}
+                      </div>
+                      ) : null}
                   </div>
 
                   <div style={{ gridColumn: "2 / 3", gridRow: "3 / 4" }}>
@@ -1172,7 +1226,25 @@ return (
                       isYou={mySeat === displaySeats.S}
                       canClaim={!!uid && !game?.seats[displaySeats.S] && !mySeat}
                       onClaim={() => claimSeat(displaySeats.S)}
+                      playedCard={game.phase === "playing"
+                      ? (game.currentTrick?.cards?.[displaySeats.S] ?? null)
+                      : null}
                     />
+                    {playedCard ? (
+                      <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
+                        {(() => {
+                          const { rank, suit } = parseCard(playedCard);
+                          return (
+                            <Card
+                              rank={rankLabel(rank)}
+                              suit={suitSymbol(suit)}
+                              selected={false}
+                              onClick={() => {}}
+                              />
+                              );
+                        })()}
+                      </div>
+                      ) : null}
                   </div>
                 </div>
 
@@ -1196,7 +1268,19 @@ return (
 
                         return (
                           <div key={realSeat} style={{ textAlign: "center" }}>
-                            <div style={{ fontSize: 12, color: "#555", marginBottom: 6 }}>{label}</div>
+                            <div style={{ marginBottom: 6, lineHeight: 1.2 }}>
+                              <div style={{ fontSize: 12, color: "#555" }}>
+                                {label}
+                              </div>
+
+                              <div style={{ fontSize: 12, fontWeight: 600 }}>
+                                {(() => {
+                                  const uid = game.seats[realSeat];
+                                  if (!uid) return "Open";
+                                  return players[uid]?.name || "Player";
+                                })()}
+                              </div>
+                            </div>
                             {played ? (
                               (() => {
                                 const { rank, suit } = parseCard(played as CardCode);
@@ -1256,7 +1340,9 @@ function SeatCard(props: {
   isYou: boolean;
   canClaim: boolean;
   onClaim: () => void;
-}) {
+  playedCard?: CardCode | null;
+})
+{
   const { seat, label, isYou, canClaim, onClaim } = props;
 
   return (
@@ -1269,13 +1355,10 @@ function SeatCard(props: {
         <div style={{ marginTop: 8, color: "#555" }}>{label}</div>
 
         {canClaim && (
-          <button
-            onClick={onClaim}
-            style={{ ...btnStyle, marginTop: 10, width: "100%" }}
-          >
-            Claim
-          </button>
-          )}
+  <button onClick={onClaim} style={{ ...btnStyle, marginTop: 10, width: "100%" }}>
+    Claim
+  </button>
+)}
       </div>
       );
 }
