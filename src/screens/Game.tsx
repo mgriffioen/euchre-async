@@ -333,6 +333,11 @@ export default function Game() {
   return { mustFollow, playableSet: playable };
 }, [game, isMyTurn, mySeat, myHand]);
 
+  const TEAM_LABELS = {
+  NS: "Team A",
+  EW: "Team B",
+} as const;
+
   /**
    * ==========================================================
    * Effects
@@ -959,7 +964,7 @@ export default function Game() {
               <b>Turn:</b> {displayTurn ?? game.turn}
             </div>
             <div>
-              <b>Score:</b> NS {game.score.NS} — EW {game.score.EW}
+              <b>Score:</b> {labels.NS} {game.score.NS} — {labels.EW} {game.score.EW}
             </div>
 
             {game.upcard && game.phase !== "playing" && (
@@ -992,6 +997,16 @@ export default function Game() {
               </div>
             )}
           </div>
+
+          {game?.phase === "playing" && (
+            <div style={{ marginTop: 10 }}>
+              <TrickMeter
+  ns={game.tricksTaken?.NS ?? 0}
+  ew={game.tricksTaken?.EW ?? 0}
+  labels={TEAM_LABELS}
+/>
+            </div>
+          )}
 
           {/* Bidding Round 1 */}
           {game.phase === "bidding_round_1" && (
@@ -1192,6 +1207,12 @@ export default function Game() {
           {/* Your Hand */}
           <h4 style={{ marginTop: 24 }}>Your Hand</h4>
 
+          {game?.phase === "playing" && isMyTurn && playableInfo.mustFollow && (
+            <div style={{ marginBottom: 8, color: "#555", fontSize: 13 }}>
+              Must follow {suitSymbol(playableInfo.mustFollow)}
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
             {myHand.map((code, i) => {
               const { rank, suit } = parseCard(code);
@@ -1250,7 +1271,9 @@ function SeatCard(props: {
   canClaim: boolean;
   playedCard?: CardCode | null;
   onClaim: () => void;
-}) {
+}) 
+
+{
   const { seat, label, isYou, canClaim, playedCard, onClaim } = props;
 
   return (
@@ -1283,6 +1306,47 @@ function SeatCard(props: {
           Claim
         </button>
       )}
+    </div>
+  );
+}
+
+function TrickMeter(props: {
+  ns: number;
+  ew: number;
+  labels?: { NS: string; EW: string };
+}) {
+  const labels = props.labels ?? { NS: "NS", EW: "EW" };
+
+  const DotRow = ({ filled }: { filled: number }) => (
+    <div style={{ display: "flex", gap: 6 }}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            width: 12,
+            height: 12,
+            borderRadius: 999,
+            border: "1px solid #bbb",
+            background: i < filled ? "#111" : "transparent",
+          }}
+        />
+      ))}
+    </div>
+  );
+
+  return (
+    <div style={{ ...cardStyle, marginBottom: 12 }}>
+      <div style={{ fontWeight: 700, marginBottom: 10 }}>Tricks This Hand</div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "50px 1fr 28px", gap: 10, rowGap: 10 }}>
+        <div style={{ fontWeight: 700 }}>NS</div>
+        <DotRow filled={ns} />
+        <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{ns}</div>
+
+        <div style={{ fontWeight: 700 }}>EW</div>
+        <DotRow filled={ew} />
+        <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{ew}</div>
+      </div>
     </div>
   );
 }
