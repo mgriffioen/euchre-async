@@ -80,6 +80,63 @@ type PlayerDoc = {
 };
 
 /**
+ * Team display:
+ * - Data is always tracked as NS vs EW (real seats)
+ * - UI can show per-viewer Team A (you + partner) and Team B (opponents)
+ */
+type TeamKey = "NS" | "EW";
+
+function teamKeyForSeat(seat: Seat): TeamKey {
+  return seat === "N" || seat === "S" ? "NS" : "EW";
+}
+
+function otherTeam(team: TeamKey): TeamKey {
+  return team === "NS" ? "EW" : "NS";
+}
+
+function TrickMeter(props: {
+  aLabel: string;
+  aCount: number;
+  bLabel: string;
+  bCount: number;
+}) {
+  const { aLabel, aCount, bLabel, bCount } = props;
+
+  const DotRow = ({ filled }: { filled: number }) => (
+    <div style={{ display: "flex", gap: 6 }}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            width: 12,
+            height: 12,
+            borderRadius: 999,
+            border: "1px solid #bbb",
+            background: i < filled ? "#111" : "transparent",
+          }}
+        />
+      ))}
+    </div>
+  );
+
+  return (
+    <div style={{ ...cardStyle, marginBottom: 12 }}>
+      <div style={{ fontWeight: 700, marginBottom: 10 }}>Tricks This Hand</div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "72px 1fr 28px", gap: 10, rowGap: 10 }}>
+        <div style={{ fontWeight: 700 }}>{aLabel}</div>
+        <DotRow filled={aCount} />
+        <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{aCount}</div>
+
+        <div style={{ fontWeight: 700 }}>{bLabel}</div>
+        <DotRow filled={bCount} />
+        <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{bCount}</div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * ==========================================================
  * Pure Helpers (no React state)
  * ==========================================================
@@ -94,8 +151,13 @@ function suitCharFromCard(code: CardCode): Suit {
   return code[1] as Suit;
 }
 
+/**
+ * Seat rotation:
+ * - Firestore stores REAL seats (N/E/S/W)
+ * - UI shows DISPLAY seats rotated so viewer is always South
+ */
 function seatIndex(seat: Seat): number {
-  return SEATS.indexOf(seat);
+  return SEATS.indexOf(seat); // N=0, E=1, S=2, W=3
 }
 
 function rotationOffsetToMakeMySeatSouth(my: Seat): number {
@@ -113,6 +175,9 @@ function teamOf(seat: Seat): "NS" | "EW" {
   return seat === "N" || seat === "S" ? "NS" : "EW";
 }
 
+/**
+ * Euchre helpers (minimum correct set)
+ */
 function leftBowerSuit(trump: Suit): Suit {
   if (trump === "H") return "D";
   if (trump === "D") return "H";
@@ -127,7 +192,7 @@ function isJack(code: CardCode) {
 
 function effectiveSuit(code: CardCode, trump: Suit): Suit {
   const s = suitCharFromCard(code);
-  if (isJack(code) && s === leftBowerSuit(trump)) return trump;
+  if (isJack(code) && s === leftBowerSuit(trump)) return trump; // left bower is trump
   return s;
 }
 
@@ -139,6 +204,18 @@ function isLeftBower(code: CardCode, trump: Suit): boolean {
   return isJack(code) && suitCharFromCard(code) === leftBowerSuit(trump);
 }
 
+function hasSuitInHand(hand: CardCode[], suit: Suit, trump: Suit): boolean {
+  return hand.some((c) => effectiveSuit(c, trump) === suit);
+}
+
+function removeOneCard(hand: CardCode[], code: CardCode): CardCode[] {
+  const idx = hand.indexOf(code);
+  if (idx === -1) return hand;
+  const next = hand.slice();
+  next.splice(idx, 1);
+  return next;
+}
+
 function trickStrength(code: CardCode, leadSuit: Suit, trump: Suit): number {
   // Higher number = stronger
   if (isRightBower(code, trump)) return 200;
@@ -147,8 +224,13 @@ function trickStrength(code: CardCode, leadSuit: Suit, trump: Suit): number {
   const eff = effectiveSuit(code, trump);
   const { rank } = parseCard(code);
 
+  // Trump beats everything else
   if (eff === trump) return 150 + rank;
+
+  // Following lead suit competes
   if (eff === leadSuit) return 100 + rank;
+
+  // Off-suit loses
   return 0 + rank;
 }
 
@@ -164,26 +246,14 @@ function winnerOfTrick(
   (Object.keys(cards) as Seat[]).forEach((seat) => {
     const c = cards[seat];
     if (!c) return;
-    const s = trickStrength(c, leadSuit, trump);
-    if (s > bestScore) {
-      bestScore = s;
+    const score = trickStrength(c, leadSuit, trump);
+    if (score > bestScore) {
+      bestScore = score;
       bestSeat = seat;
     }
   });
 
   return bestSeat;
-}
-
-function removeOneCard(hand: CardCode[], code: CardCode): CardCode[] {
-  const idx = hand.indexOf(code);
-  if (idx === -1) return hand;
-  const next = hand.slice();
-  next.splice(idx, 1);
-  return next;
-}
-
-function hasSuitInHand(hand: CardCode[], suit: Suit, trump: Suit): boolean {
-  return hand.some((c) => effectiveSuit(c, trump) === suit);
 }
 
 /**
@@ -236,6 +306,27 @@ export default function Game() {
 
   const isMyTurn = !!uid && !!game && !!mySeat && game.turn === mySeat;
 
+  const teamUi = useMemo(() => {
+    // Internally we track NS vs EW (real seats). Keep Team A/B consistent for ALL players:
+    //   Team A = NS (North/South)
+    //   Team B = EW (East/West)
+    // Your *personal* team is derived from your REAL seat, but the labels do not flip per viewer.
+    const aTeam: TeamKey = "NS";
+    const bTeam: TeamKey = "EW";
+
+    const labelForTeam: Record<TeamKey, string> = {
+      NS: "Team A",
+      EW: "Team B",
+    };
+
+    const myTeam: TeamKey | null = mySeat ? teamKeyForSeat(mySeat) : null;
+
+    return { aTeam, bTeam, labelForTeam, myTeam };
+  }, [mySeat]);
+
+
+  const url = typeof window !== "undefined" ? window.location.href : "";
+
   const upcardSuit: Suit | null = game?.upcard ? suitCharFromCard(game.upcard) : null;
   const round2AllowedSuits: Suit[] = upcardSuit ? SUITS.filter((s) => s !== upcardSuit) : SUITS;
 
@@ -246,7 +337,17 @@ export default function Game() {
     (game.bidding?.passes?.length ?? 0) === 3 &&
     game.turn === game.dealer;
 
-  const isDealerPickupPhase = !!game && game.phase === "dealer_discard" && mySeat === game.dealer;
+  /**
+   * Dealer pickup/discard visual:
+   * During dealer_discard, the dealer temporarily sees a 6-card hand (their 5 + upcard).
+   * Everyone else just sees their normal hand.
+   */
+  const displayHand: CardCode[] = useMemo(() => {
+    if (game?.phase === "dealer_discard" && mySeat === game.dealer && game.upcard) {
+      return [...myHand, game.upcard];
+    }
+    return myHand;
+  }, [game?.phase, game?.dealer, game?.upcard, mySeat, myHand]);
 
   /**
    * ----------------------------------------------------------
@@ -264,14 +365,14 @@ export default function Game() {
 
   const displayPasses: Seat[] = (game?.bidding?.passes ?? []).map((s) => displaySeat(s as Seat));
 
-  // displaySeats[DISPLAY] = REAL
+  // Map DISPLAY -> REAL for seat cards
   const displaySeats: Record<Seat, Seat> = useMemo(() => {
     if (!mySeat) return { N: "N", E: "E", S: "S", W: "W" };
 
     const m: Record<Seat, Seat> = { N: "N", E: "E", S: "S", W: "W" };
     (SEATS as Seat[]).forEach((real) => {
-      const display = realToDisplaySeat(real, mySeat);
-      m[display] = real;
+      const disp = realToDisplaySeat(real, mySeat);
+      m[disp] = real;
     });
     return m;
   }, [mySeat]);
@@ -288,43 +389,30 @@ export default function Game() {
     return players[seatUid]?.name || "Taken";
   };
 
-  const url = typeof window !== "undefined" ? window.location.href : "";
-
-  /**
-   * Dealer 6-card visual (dealer only, during dealer_discard)
-   */
-  const dealerHandForDiscard: CardCode[] = useMemo(() => {
-    if (!isDealerPickupPhase) return myHand;
-    if (!game?.upcard) return myHand;
-    return [...myHand, game.upcard as CardCode];
-  }, [isDealerPickupPhase, myHand, game?.upcard]);
-
   const playableInfo = useMemo(() => {
-  // Only restrict cards during "playing" AND when it's your turn
+  // Default: everything clickable unless it’s your playing turn.
   if (!game || game.phase !== "playing" || !isMyTurn || !mySeat || !game.trump) {
     return { mustFollow: null as Suit | null, playableSet: null as Set<CardCode> | null };
   }
 
   const trump = game.trump;
   const trick = game.currentTrick;
-  const cards = (trick?.cards ?? {}) as Partial<Record<Seat, CardCode>>;
-
+  const cards = trick?.cards ?? {};
   const trickStarted = Object.keys(cards).length > 0;
   const leadSuit = trickStarted ? (trick?.leadSuit ?? null) : null;
 
-  // Leading: anything is legal
+  // If you’re leading (no lead suit yet), you can play anything.
   if (!leadSuit) {
     return { mustFollow: null, playableSet: null };
   }
 
-  // If you have the lead suit (effectiveSuit), you must follow it
   const mustFollow = hasSuitInHand(myHand, leadSuit, trump) ? leadSuit : null;
 
+  // If you must follow, only those cards are legal. Otherwise all are legal.
   if (!mustFollow) {
     return { mustFollow: null, playableSet: null };
   }
 
-  // Build set of playable cards
   const playable = new Set<CardCode>();
   myHand.forEach((c) => {
     if (effectiveSuit(c, trump) === mustFollow) playable.add(c);
@@ -333,25 +421,20 @@ export default function Game() {
   return { mustFollow, playableSet: playable };
 }, [game, isMyTurn, mySeat, myHand]);
 
-  const TEAM_LABELS = {
-  NS: "Team A",
-  EW: "Team B",
-} as const;
-
   /**
    * ==========================================================
    * Effects
    * ==========================================================
    */
 
-  // 1) Anonymous auth
+  // 1) Anonymous auth (persists per browser profile)
   useEffect(() => {
     ensureAnonAuth()
       .then((u) => setUid(u.uid))
       .catch((e) => setErr(String(e)));
   }, []);
 
-  // 2) Game subscription
+  // 2) Game doc subscription (shared public state)
   useEffect(() => {
     if (!gameRef) return;
 
@@ -372,7 +455,7 @@ export default function Game() {
     return () => unsub();
   }, [gameRef]);
 
-  // 3) Players subscription
+  // 3) Players subcollection subscription (names/seat metadata)
   useEffect(() => {
     if (!gameId) return;
 
@@ -391,7 +474,7 @@ export default function Game() {
     return () => unsub();
   }, [gameId]);
 
-  // 4) My player doc subscription (private hand)
+  // 4) My private player doc subscription (only *my* hand)
   useEffect(() => {
     if (!gameId || !uid) return;
 
@@ -496,6 +579,7 @@ export default function Game() {
       trump: null,
       makerSeat: null,
 
+      // reset per-hand trick state
       currentTrick: null,
       tricksTaken: { NS: 0, EW: 0 },
       trickWinners: [],
@@ -580,7 +664,6 @@ export default function Game() {
 
       const trump = suitCharFromCard(g.upcard);
 
-      // Dealer must pick up and discard before play begins
       tx.update(gameRef, {
         status: "bidding",
         phase: "dealer_discard",
@@ -592,7 +675,7 @@ export default function Game() {
           orderedUpBy: mySeat,
         },
         updatedAt: serverTimestamp(),
-        turn: g.dealer,
+        turn: g.dealer, // dealer must pick up + discard
       });
     });
   }
@@ -672,13 +755,14 @@ export default function Game() {
           orderedUpBy: null,
         },
         updatedAt: serverTimestamp(),
-        turn: nextSeat(g.dealer),
+        turn: nextSeat(g.dealer), // first lead left of dealer
       });
     });
   }
 
   async function dealerPickupAndDiscard(discard: CardCode) {
     if (!gameRef || !gameId || !game || !uid || !mySeat) return;
+
     if (game.phase !== "dealer_discard") return;
     if (mySeat !== game.dealer) return;
     if (game.turn !== game.dealer) return;
@@ -696,16 +780,17 @@ export default function Game() {
 
         const dealerUid2 = g.seats[g.dealer];
         if (!dealerUid2) throw new Error("Dealer missing");
-
         const dealerRef2 = doc(db, "games", gameId, "players", dealerUid2);
+
         const playerSnap = await tx.get(dealerRef2);
         if (!playerSnap.exists()) throw new Error("Dealer player doc missing");
-
         const p = playerSnap.data() as PlayerDoc;
+
         const hand = (p.hand ?? []) as CardCode[];
         if (hand.length !== 5) throw new Error("Dealer hand not 5 cards");
 
         const combined: CardCode[] = [...hand, g.upcard];
+
         const discardIdx = combined.indexOf(discard);
         if (discardIdx === -1) throw new Error("Discard card not found");
 
@@ -722,16 +807,7 @@ export default function Game() {
           phase: "playing",
           kitty: nextKitty,
           updatedAt: serverTimestamp(),
-          turn: nextSeat(g.dealer),
-          // initialize trick state at start of play
-          currentTrick: {
-            trickNumber: 1,
-            leadSeat: nextSeat(g.dealer),
-            leadSuit: null,
-            cards: {},
-          },
-          tricksTaken: { NS: 0, EW: 0 },
-          trickWinners: [],
+          turn: nextSeat(g.dealer), // first lead left of dealer
         });
       });
 
@@ -745,8 +821,6 @@ export default function Game() {
   async function playCard(code: CardCode) {
     if (!gameRef || !gameId || !game || !uid || !mySeat) return;
     if (game.phase !== "playing") return;
-    if (!game.trump) return;
-    if (game.turn !== mySeat) return;
 
     try {
       await runTransaction(db, async (tx) => {
@@ -755,8 +829,8 @@ export default function Game() {
         const g = gameSnap.data() as GameDoc;
 
         if (g.phase !== "playing") return;
-        if (!g.trump) throw new Error("Trump not set");
         if (g.turn !== mySeat) return;
+        if (!g.trump) throw new Error("Trump not set");
 
         const trump = g.trump;
 
@@ -766,43 +840,41 @@ export default function Game() {
 
         const p = playerSnap.data() as PlayerDoc;
         const hand = (p.hand ?? []) as CardCode[];
+
         if (!hand.includes(code)) throw new Error("Card not in hand");
 
-        const trick = g.currentTrick ?? {
-          trickNumber: 1,
-          leadSeat: g.turn,
-          leadSuit: null,
-          cards: {},
-        };
+        const trick = g.currentTrick ?? null;
+        const existingCards = trick?.cards ?? {};
+        if (existingCards[mySeat]) throw new Error("You already played this trick");
 
-        const already = trick.cards?.[mySeat];
-        if (already) throw new Error("Already played this trick");
+        const isNewTrick = !trick || Object.keys(existingCards).length === 0;
 
-        const isLead = Object.keys(trick.cards ?? {}).length === 0;
-        const leadSeat = isLead ? mySeat : trick.leadSeat;
-
-        const leadSuit: Suit = isLead
+        const leadSeat: Seat = isNewTrick ? mySeat : (trick!.leadSeat as Seat);
+        const leadSuit: Suit = isNewTrick
           ? effectiveSuit(code, trump)
-          : (trick.leadSuit as Suit);
+          : (trick!.leadSuit as Suit);
 
-        if (!isLead) {
+        // Follow-suit enforcement (only if not leading)
+        if (!isNewTrick) {
           const mustFollow = hasSuitInHand(hand, leadSuit, trump);
-          if (mustFollow && effectiveSuit(code, trump) !== leadSuit) {
-            throw new Error("Must follow suit");
+          if (mustFollow) {
+            const eff = effectiveSuit(code, trump);
+            if (eff !== leadSuit) throw new Error("Must follow suit");
           }
         }
 
         const nextHand = removeOneCard(hand, code);
+
         const nextCards: Partial<Record<Seat, CardCode>> = {
-          ...(trick.cards ?? {}),
+          ...existingCards,
           [mySeat]: code,
         };
 
-        // write player hand
-        tx.update(playerRef, { hand: nextHand, updatedAt: serverTimestamp() });
+        const currentTrickNumber = trick?.trickNumber ?? 1;
+        const seatsPlayed = Object.keys(nextCards).length;
 
-        // Trick complete?
-        if (Object.keys(nextCards).length === 4) {
+        // If trick completes, determine winner and start next trick / end hand
+        if (seatsPlayed === 4) {
           const winner = winnerOfTrick(nextCards, leadSeat, trump, leadSuit);
 
           const prevTaken = g.tricksTaken ?? { NS: 0, EW: 0 };
@@ -815,8 +887,10 @@ export default function Game() {
           const prevWinners = (g.trickWinners ?? []) as Seat[];
           const nextWinners = [...prevWinners, winner];
 
-          // End hand after 5 tricks (for now just return to lobby)
-          if ((trick.trickNumber ?? 1) >= 5) {
+          tx.update(playerRef, { hand: nextHand, updatedAt: serverTimestamp() });
+
+          // End of hand after 5 tricks (simple reset to lobby for now)
+          if (currentTrickNumber >= 5) {
             tx.update(gameRef, {
               updatedAt: serverTimestamp(),
               tricksTaken: nextTaken,
@@ -835,13 +909,13 @@ export default function Game() {
             return;
           }
 
-          // Start next trick; winner leads
+          // Next trick (winner leads)
           tx.update(gameRef, {
             updatedAt: serverTimestamp(),
             tricksTaken: nextTaken,
             trickWinners: nextWinners,
             currentTrick: {
-              trickNumber: (trick.trickNumber ?? 1) + 1,
+              trickNumber: currentTrickNumber + 1,
               leadSeat: winner,
               leadSuit: null,
               cards: {},
@@ -852,11 +926,13 @@ export default function Game() {
           return;
         }
 
-        // Not complete: advance turn clockwise
+        // Trick not complete yet → next seat (simple clockwise; skips not-yet logic later if needed)
+        tx.update(playerRef, { hand: nextHand, updatedAt: serverTimestamp() });
+
         tx.update(gameRef, {
           updatedAt: serverTimestamp(),
           currentTrick: {
-            trickNumber: trick.trickNumber ?? 1,
+            trickNumber: currentTrickNumber,
             leadSeat,
             leadSuit,
             cards: nextCards,
@@ -893,6 +969,7 @@ export default function Game() {
         </div>
       </div>
 
+      {/* Host-only for now: N starts the hand */}
       <button
         onClick={startHand}
         disabled={!game || mySeat !== "N"}
@@ -946,7 +1023,16 @@ export default function Game() {
             )}
           </div>
 
-          {/* Summary */}
+          {/* Tricks tracker (Team A = NS, Team B = EW) */}
+          {game.phase === "playing" && (
+            <TrickMeter
+              aLabel={teamUi.labelForTeam[teamUi.aTeam]}
+              aCount={game.tricksTaken?.[teamUi.aTeam] ?? 0}
+              bLabel={teamUi.labelForTeam[teamUi.bTeam]}
+              bCount={game.tricksTaken?.[teamUi.bTeam] ?? 0}
+            />
+          )}
+{/* Public/shared game summary */}
           <div style={cardStyle}>
             <div>
               <b>Status:</b> {game.status}
@@ -964,8 +1050,14 @@ export default function Game() {
               <b>Turn:</b> {displayTurn ?? game.turn}
             </div>
             <div>
-              <b>Score:</b> {labels.NS} {game.score.NS} — {labels.EW} {game.score.EW}
+              <b>Score:</b> {teamUi.labelForTeam[teamUi.aTeam]} {game.score[teamUi.aTeam]} — {teamUi.labelForTeam[teamUi.bTeam]} {game.score[teamUi.bTeam]}
             </div>
+
+            {teamUi.myTeam && (
+              <div>
+                <b>Your Team:</b> {teamUi.labelForTeam[teamUi.myTeam]}
+              </div>
+            )}
 
             {game.upcard && game.phase !== "playing" && (
               <div style={{ marginTop: 10 }}>
@@ -998,17 +1090,7 @@ export default function Game() {
             )}
           </div>
 
-          {game?.phase === "playing" && (
-            <div style={{ marginTop: 10 }}>
-              <TrickMeter
-  ns={game.tricksTaken?.NS ?? 0}
-  ew={game.tricksTaken?.EW ?? 0}
-  labels={TEAM_LABELS}
-/>
-            </div>
-          )}
-
-          {/* Bidding Round 1 */}
+          {/* Bidding UI (Round 1) */}
           {game.phase === "bidding_round_1" && (
             <div style={{ ...cardStyle, marginTop: 12 }}>
               <h4 style={{ marginTop: 0 }}>Bidding (Round 1)</h4>
@@ -1041,7 +1123,7 @@ export default function Game() {
             </div>
           )}
 
-          {/* Bidding Round 2 */}
+          {/* Bidding UI (Round 2) */}
           {game.phase === "bidding_round_2" && (
             <div style={{ ...cardStyle, marginTop: 12 }}>
               <h4 style={{ marginTop: 0 }}>Bidding (Round 2)</h4>
@@ -1062,7 +1144,8 @@ export default function Game() {
               </div>
 
               <div style={{ marginBottom: 10, color: "#555" }}>
-                Choose trump (cannot be the upcard suit{upcardSuit ? ` ${suitSymbol(upcardSuit)}` : ""}).
+                Choose trump (cannot be the upcard suit
+                {upcardSuit ? ` ${suitSymbol(upcardSuit)}` : ""}).
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
@@ -1101,33 +1184,14 @@ export default function Game() {
             <div style={{ ...cardStyle, marginTop: 12 }}>
               <h4 style={{ marginTop: 0 }}>Dealer: Pick up & Discard</h4>
 
-              <div style={{ marginBottom: 10, color: "#555" }}>
-                Select one card to discard. Your hand shows 6 cards (your 5 + the upcard).
+              <div style={{ marginBottom: 8 }}>
+                <b>Trump:</b> {game.trump ? suitSymbol(game.trump) : "(unknown)"}
               </div>
 
               {mySeat === game.dealer ? (
                 <>
-                  <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
-                    {dealerHandForDiscard.map((code, i) => {
-                      const { rank, suit } = parseCard(code);
-                      const isUpcard =
-                        !!game.upcard && code === game.upcard && i === dealerHandForDiscard.length - 1;
-
-                      return (
-                        <div
-                          key={`${code}-${i}`}
-                          style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}
-                        >
-                          <Card
-                            rank={rankLabel(rank)}
-                            suit={suitSymbol(suit)}
-                            selected={selectedCard === i}
-                            onClick={() => setSelectedCard(selectedCard === i ? null : i)}
-                          />
-                          {isUpcard ? <div style={{ fontSize: 12, color: "#555" }}>Upcard</div> : null}
-                        </div>
-                      );
-                    })}
+                  <div style={{ marginBottom: 10, color: "#555" }}>
+                    Select a card to discard.
                   </div>
 
                   <button
@@ -1136,16 +1200,17 @@ export default function Game() {
                         setErr("Select a card to discard.");
                         return;
                       }
-                      dealerPickupAndDiscard(dealerHandForDiscard[selectedCard]);
+                      const code = displayHand[selectedCard];
+                      if (!code) {
+                        setErr("Select a card to discard.");
+                        return;
+                      }
+                      dealerPickupAndDiscard(code);
                     }}
                     style={{ ...btnStyle, width: "100%" }}
                   >
                     Discard Selected Card
                   </button>
-
-                  <div style={{ marginTop: 8, fontSize: 13, color: "#555" }}>
-                    Tip: you may discard the upcard (it’s labeled).
-                  </div>
                 </>
               ) : (
                 <div style={{ color: "#555" }}>
@@ -1155,8 +1220,8 @@ export default function Game() {
             </div>
           )}
 
-          {/* Seats */}
-          <h4 style={{ marginTop: 16 }}>Seats</h4>
+          {/* Seats (also show played cards during Playing) */}
+          <h4>Seats</h4>
 
           <div style={tableStyle}>
             <div style={{ gridColumn: "2 / 3", gridRow: "1 / 2" }}>
@@ -1164,6 +1229,8 @@ export default function Game() {
                 seat="N"
                 label={seatLabel(displaySeats.N)}
                 isYou={mySeat === displaySeats.N}
+                isTurn={game.turn === displaySeats.N}
+                teamLabel={teamUi.labelForTeam[teamKeyForSeat(displaySeats.N)]}
                 canClaim={!!uid && !game.seats[displaySeats.N] && !mySeat}
                 playedCard={game.phase === "playing" ? game.currentTrick?.cards?.[displaySeats.N] ?? null : null}
                 onClaim={() => claimSeat(displaySeats.N)}
@@ -1175,6 +1242,8 @@ export default function Game() {
                 seat="W"
                 label={seatLabel(displaySeats.W)}
                 isYou={mySeat === displaySeats.W}
+                isTurn={game.turn === displaySeats.W}
+                teamLabel={teamUi.labelForTeam[teamKeyForSeat(displaySeats.W)]}
                 canClaim={!!uid && !game.seats[displaySeats.W] && !mySeat}
                 playedCard={game.phase === "playing" ? game.currentTrick?.cards?.[displaySeats.W] ?? null : null}
                 onClaim={() => claimSeat(displaySeats.W)}
@@ -1186,6 +1255,8 @@ export default function Game() {
                 seat="E"
                 label={seatLabel(displaySeats.E)}
                 isYou={mySeat === displaySeats.E}
+                isTurn={game.turn === displaySeats.E}
+                teamLabel={teamUi.labelForTeam[teamKeyForSeat(displaySeats.E)]}
                 canClaim={!!uid && !game.seats[displaySeats.E] && !mySeat}
                 playedCard={game.phase === "playing" ? game.currentTrick?.cards?.[displaySeats.E] ?? null : null}
                 onClaim={() => claimSeat(displaySeats.E)}
@@ -1197,6 +1268,8 @@ export default function Game() {
                 seat="S"
                 label={seatLabel(displaySeats.S)}
                 isYou={mySeat === displaySeats.S}
+                isTurn={game.turn === displaySeats.S}
+                teamLabel={teamUi.labelForTeam[teamKeyForSeat(displaySeats.S)]}
                 canClaim={!!uid && !game.seats[displaySeats.S] && !mySeat}
                 playedCard={game.phase === "playing" ? game.currentTrick?.cards?.[displaySeats.S] ?? null : null}
                 onClaim={() => claimSeat(displaySeats.S)}
@@ -1204,53 +1277,54 @@ export default function Game() {
             </div>
           </div>
 
-          {/* Your Hand */}
+          {/* My private hand */}
           <h4 style={{ marginTop: 24 }}>Your Hand</h4>
-
-          {game?.phase === "playing" && isMyTurn && playableInfo.mustFollow && (
-            <div style={{ marginBottom: 8, color: "#555", fontSize: 13 }}>
-              Must follow {suitSymbol(playableInfo.mustFollow)}
-            </div>
-          )}
-
           <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
-            {myHand.map((code, i) => {
-              const { rank, suit } = parseCard(code);
+            {displayHand.map((code, i) => {
+  const { rank, suit } = parseCard(code);
 
-              const isPlayingTurn = game?.phase === "playing" && isMyTurn;
-              const mustFollow = playableInfo.mustFollow;
-              const playableSet = playableInfo.playableSet;
+  const isPlayingTurn = game?.phase === "playing" && isMyTurn;
+  const mustFollow = playableInfo.mustFollow;
+  const playableSet = playableInfo.playableSet;
 
-              const isPlayable = !isPlayingTurn || !playableSet ? true : playableSet.has(code);
+  // If playableSet is null, everything is playable (or we’re not in restricted mode)
+  const isPlayable =
+    !isPlayingTurn || !playableSet ? true : playableSet.has(code);
 
-              return (
-                <div
-                  key={code + i}
-                  style={{
-                    opacity: isPlayable ? 1 : 0.35,
-                    pointerEvents: isPlayable ? "auto" : "none",
-                    transition: "opacity 120ms ease",
-                  }}
-                  title={!isPlayable && mustFollow ? `Must follow ${mustFollow}` : undefined}
-                >
-                  <Card
-                    rank={rankLabel(rank)}
-                    suit={suitSymbol(suit)}
-                    selected={selectedCard === i}
-                    onClick={() => {
-                      // Playing: click plays immediately
-                      if (game?.phase === "playing" && isMyTurn) {
-                        playCard(code);
-                        return;
-                      }
+  return (
+    <div
+      key={code + i}
+      style={{
+        opacity: isPlayable ? 1 : 0.35,
+        pointerEvents: isPlayable ? "auto" : "none",
+        transition: "opacity 120ms ease",
+      }}
+      title={!isPlayable && mustFollow ? `Must follow ${mustFollow}` : undefined}
+    >
+      <Card
+        rank={rankLabel(rank)}
+        suit={suitSymbol(suit)}
+        selected={selectedCard === i}
+        onClick={() => {
+          // Dealer discard: still uses selection
+          if (game?.phase === "dealer_discard") {
+            setSelectedCard(selectedCard === i ? null : i);
+            return;
+          }
 
-                      // Otherwise: selection
-                      setSelectedCard(selectedCard === i ? null : i);
-                    }}
-                  />
-                </div>
-              );
-            })}
+          // Playing: click plays immediately
+          if (game?.phase === "playing" && isMyTurn) {
+            playCard(code);
+            return;
+          }
+
+          // Other phases: selection only
+          setSelectedCard(selectedCard === i ? null : i);
+        }}
+      />
+    </div>
+  );
+})}
           </div>
         </>
       )}
@@ -1258,30 +1332,26 @@ export default function Game() {
   );
 }
 
-/**
- * ==========================================================
- * Components
- * ==========================================================
- */
-
 function SeatCard(props: {
   seat: Seat; // DISPLAY seat label
   label: string;
   isYou: boolean;
+  isTurn: boolean;
+  teamLabel?: string;
   canClaim: boolean;
   playedCard?: CardCode | null;
   onClaim: () => void;
-}) 
-
-{
-  const { seat, label, isYou, canClaim, playedCard, onClaim } = props;
+}) {
+  const { seat, label, isYou, isTurn, teamLabel, canClaim, playedCard, onClaim } = props;
 
   return (
-    <div style={cardStyle}>
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <b>{seat}</b>
-        {isYou && <span style={{ fontSize: 12, color: "#0a7" }}>You</span>}
-      </div>
+    <div
+      style={{
+        ...cardStyle,
+        borderColor: isTurn ? "#0a7" : "#ddd",
+        boxShadow: isTurn ? "0 0 0 2px rgba(0,170,119,0.15)" : undefined,
+      }}
+    >
 
       <div style={{ marginTop: 8, color: "#555" }}>{label}</div>
 
@@ -1306,47 +1376,6 @@ function SeatCard(props: {
           Claim
         </button>
       )}
-    </div>
-  );
-}
-
-function TrickMeter(props: {
-  ns: number;
-  ew: number;
-  labels?: { NS: string; EW: string };
-}) {
-  const labels = props.labels ?? { NS: "NS", EW: "EW" };
-
-  const DotRow = ({ filled }: { filled: number }) => (
-    <div style={{ display: "flex", gap: 6 }}>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div
-          key={i}
-          style={{
-            width: 12,
-            height: 12,
-            borderRadius: 999,
-            border: "1px solid #bbb",
-            background: i < filled ? "#111" : "transparent",
-          }}
-        />
-      ))}
-    </div>
-  );
-
-  return (
-    <div style={{ ...cardStyle, marginBottom: 12 }}>
-      <div style={{ fontWeight: 700, marginBottom: 10 }}>Tricks This Hand</div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "50px 1fr 28px", gap: 10, rowGap: 10 }}>
-        <div style={{ fontWeight: 700 }}>NS</div>
-        <DotRow filled={ns} />
-        <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{ns}</div>
-
-        <div style={{ fontWeight: 700 }}>EW</div>
-        <DotRow filled={ew} />
-        <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{ew}</div>
-      </div>
     </div>
   );
 }
