@@ -829,31 +829,46 @@ export default function Game() {
               {mySeat === game.dealer ? (
                 <>
                   <div style={{ marginBottom: 10, color: "#555" }}>
-                    You must pick up the upcard and discard one card (you may discard the upcard).
+                    Tap a card to discard it (you can discard the upcard).
                   </div>
 
-                  <button
-                    onClick={() => dealerPickupAndDiscard(game.upcard as CardCode)}
-                    style={{ ...btnStyle, width: "100%", marginBottom: 8 }}
-                  >
-                    Discard Upcard
-                  </button>
+                  {(() => {
+                    const up = game.upcard as CardCode | undefined;
+                    const combined: CardCode[] = up ? [...myHand, up] : [...myHand];
 
-                  <button
-                    onClick={() => {
-                      if (selectedCard == null) {
-                        setErr("Select a card from your hand to discard.");
-                        return;
-                      }
-                      dealerPickupAndDiscard(myHand[selectedCard]);
-                    }}
-                    style={{ ...btnStyle, width: "100%" }}
-                  >
-                    Discard Selected Card
-                  </button>
+                    return (
+                      <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
+                        {combined.map((code, i) => {
+                          const { rank, suit } = parseCard(code);
+
+                          // If the upcard duplicates a card in hand (unlikely with a real deck),
+                          // this keeps keys unique.
+                          const key = `${code}-${i}`;
+
+                          const isUpcard = up === code && i === combined.length - 1;
+
+                          return (
+                            <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                              <Card
+                                rank={rankLabel(rank)}
+                                suit={suitSymbol(suit)}
+                                selected={false}
+                                onClick={() => dealerPickupAndDiscard(code)}
+                              />
+                              {isUpcard && (
+                                <div style={{ fontSize: 12, color: "#555" }}>
+                                  Upcard
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
 
                   <div style={{ marginTop: 8, fontSize: 13, color: "#555" }}>
-                    Tip: tap a card in your hand to select it.
+                    Discard happens immediately after you tap.
                   </div>
                 </>
               ) : (
@@ -920,7 +935,10 @@ export default function Game() {
                   rank={rankLabel(rank)}
                   suit={suitSymbol(suit)}
                   selected={selectedCard === i}
-                  onClick={() => setSelectedCard(selectedCard === i ? null : i)}
+                  onClick={() => {
+  if (game?.phase === "dealer_discard") return; // dealer uses the 6-card row above
+  setSelectedCard(selectedCard === i ? null : i);
+}}
                 />
               );
             })}
