@@ -106,10 +106,6 @@ export default function Home() {
       </div>
 
       <hr style={{ margin: "24px 0" }} />
-
-      <p style={{ color: "#555" }}>
-        For now we use the Firestore document id as the join code. We’ll add short codes later.
-      </p>
     </div>
     );
 }
