@@ -305,6 +305,10 @@ export default function Game() {
    * Derived Values (REAL seats)
    * ----------------------------------------------------------
    */
+
+  const scoreNS = game?.score?.NS ?? 0;
+  const scoreEW = game?.score?.EW ?? 0;
+
   const mySeat: Seat | null =
   uid && game
   ? ((Object.entries(game.seats).find(([, v]) => v === uid)?.[0] as Seat | undefined) ?? null)
@@ -354,6 +358,8 @@ export default function Game() {
     }
     return myHand;
   }, [game?.phase, game?.dealer, game?.upcard, mySeat, myHand]);
+
+  const isGameFinished = game?.status === "finished";
 
   /**
    * ----------------------------------------------------------
@@ -427,12 +433,12 @@ export default function Game() {
     return { mustFollow, playableSet: playable };
   }, [game, isMyTurn, mySeat, myHand]);
 
-    const renderSeat = (displayPos: Seat, gridColumn: string, gridRow: string) => {
-      const realSeat = displaySeats[displayPos];
+  const renderSeat = (displayPos: Seat, gridColumn: string, gridRow: string) => {
+    const realSeat = displaySeats[displayPos];
 
-      return (
-        <div style={{ gridColumn, gridRow }}>
-          <SeatCard
+    return (
+      <div style={{ gridColumn, gridRow }}>
+        <SeatCard
             seat={displayPos} // DISPLAY position for alignment rules
             label={seatLabel(realSeat)} // label from REAL seat
             isYou={mySeat === realSeat}
@@ -445,8 +451,8 @@ export default function Game() {
             onClaim={() => claimSeat(realSeat)}
           />
         </div>
-      );
-    };
+        );
+  };
 
   /**
    * ==========================================================
@@ -566,19 +572,23 @@ export default function Game() {
   async function startHand() {
     if (!gameId || !uid || !gameRef || !game) return;
 
+    setErr(null);
+
     const allFilled = (SEATS as Seat[]).every((seat) => !!game.seats[seat]);
     if (!allFilled) {
       setErr("Need all 4 seats filled to start a hand.");
       return;
     }
 
-    const score = g.score ?? { NS: 0, EW: 0 };
-const winner = winningTeam(score, 10);
+    const score = game.score ?? { NS: 0, EW: 0 };
+    const winner = winningTeam(score, 10);
 
-if (g.status === "finished" || winner) {
-  setErr(`Game over — ${winner ? (winner === "NS" ? "Team A" : "Team B") : "a team"} reached 10.`);
-  return;
-}
+    if (game.status === "finished" || winner) {
+      setErr(
+    `Game over — ${winner ? (winner === "NS" ? "Team A" : "Team B") : "a team"} reached 10.`
+    );
+      return;
+    }
 
     const dealer: Seat = game.dealer ? nextSeat(game.dealer) : "N";
     const firstToAct: Seat = nextSeat(dealer);
@@ -854,6 +864,7 @@ if (g.status === "finished" || winner) {
   }
 
   async function playCard(code: CardCode) {
+    if (isGameFinished) return;
     if (!gameRef || !gameId || !game || !uid || !mySeat) return;
     if (game.phase !== "playing") return;
 
@@ -925,38 +936,38 @@ if (g.status === "finished" || winner) {
           tx.update(playerRef, { hand: nextHand, updatedAt: serverTimestamp() });
 
 // End of hand after 5 tricks → award points, then reset to lobby
-if (currentTrickNumber >= 5) {
-  const makerSeat = g.makerSeat as Seat | null;
-  const makerTeam: TeamKey | null = makerSeat ? teamKeyForSeat(makerSeat) : null;
-  const defenseTeam: TeamKey | null = makerTeam ? otherTeam(makerTeam) : null;
+          if (currentTrickNumber >= 5) {
+            const makerSeat = g.makerSeat as Seat | null;
+            const makerTeam: TeamKey | null = makerSeat ? teamKeyForSeat(makerSeat) : null;
+            const defenseTeam: TeamKey | null = makerTeam ? otherTeam(makerTeam) : null;
 
   // Default to existing score (schema already has it)
-  const prevScore = g.score ?? { NS: 0, EW: 0 };
-  const nextScore = { ...prevScore };
+            const prevScore = g.score ?? { NS: 0, EW: 0 };
+            const nextScore = { ...prevScore };
 
-  if (makerTeam && defenseTeam) {
-    const makerTricks = nextTaken[makerTeam];
+            if (makerTeam && defenseTeam) {
+              const makerTricks = nextTaken[makerTeam];
 
-    if (makerTricks >= 5) {
-      nextScore[makerTeam] += 2;
-    } else if (makerTricks >= 3) {
-      nextScore[makerTeam] += 1;
-    } else {
+              if (makerTricks >= 5) {
+                nextScore[makerTeam] += 2;
+              } else if (makerTricks >= 3) {
+                nextScore[makerTeam] += 1;
+              } else {
       // Euchred
-      nextScore[defenseTeam] += 2;
-    }
-  }
+                nextScore[defenseTeam] += 2;
+              }
+            }
 
-  const winner = winningTeam(nextScore, 10);
+            const winner = winningTeam(nextScore, 10);
 
-tx.update(gameRef, {
-  updatedAt: serverTimestamp(),
-  tricksTaken: nextTaken,
-  trickWinners: nextWinners,
-  score: nextScore,
+            tx.update(gameRef, {
+              updatedAt: serverTimestamp(),
+              tricksTaken: nextTaken,
+              trickWinners: nextWinners,
+              score: nextScore,
 
   // ✅ win condition
-  status: winner ? "finished" : "lobby",
+              status: winner ? "finished" : "lobby",
   winnerTeam: winner, // NEW FIELD (additive)
 
   // reset per-hand state (keep your current behavior)
@@ -968,8 +979,8 @@ tx.update(gameRef, {
   makerSeat: null,
   bidding: null,
 });
-return;
-}
+            return;
+          }
 
           // Next trick (winner leads)
           tx.update(gameRef, {
@@ -1003,284 +1014,306 @@ return;
         });
       });
 
-      setErr(null);
-      setSelectedCard(null);
-    } catch (e: any) {
-      setErr(e?.message ?? String(e));
-    }
-  }
+setErr(null);
+setSelectedCard(null);
+} catch (e: any) {
+  setErr(e?.message ?? String(e));
+}
+}
 
   /**
    * ==========================================================
    * Render
    * ==========================================================
    */
-  return (
-    <div>
-      <h3 style={{ marginTop: 0 }}>Game</h3>
+return (
+  <div>
+    <h3 style={{ marginTop: 0 }}>Game</h3>
 
-      {err && <div style={alertStyle}>{err}</div>}
+    {err && <div style={alertStyle}>{err}</div>}
 
-        <div style={{ marginBottom: 12 }}>
-          <div>
-            <b>Game ID:</b> {gameId}
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <b>Share link:</b>
-            <input readOnly value={url} style={shareStyle} />
-          </div>
+      <div style={{ marginBottom: 12 }}>
+        <div>
+          <b>Game ID:</b> {gameId}
         </div>
+        <div style={{ marginTop: 8 }}>
+          <b>Share link:</b>
+          <input readOnly value={url} style={shareStyle} />
+        </div>
+      </div>
 
       {/* Host-only for now: N starts the hand */}
-        <button
-          onClick={startHand}
-          disabled={game?.status === "finished"}
-          style={{ ...btnStyle, width: "100%", marginBottom: 12 }}
-        >
-          Start Hand (Deal)
-        </button>
+      <button
+        onClick={startHand}
+        disabled={game?.status === "finished"}
+        style={{ ...btnStyle, width: "100%", marginBottom: 12 }}
+      >
+        Start Hand (Deal)
+      </button>
 
-        {!game ? (
-          <p>Loading…</p>
-          ) : (
-          <>
+      {!game ? (
+        <p>Loading…</p>
+        ) : (
+        <>
 {/* Public/shared game summary */}
-                  <div style={cardStyle}>
-                    <div>
-                      <b>Status:</b> {game.status}
-                    </div>
-                    <div>
-                      <b>Phase:</b> {game.phase ?? "lobby"}
-                    </div>
-                    <div>
-                      <b>Hand #:</b> {game.handNumber}
-                    </div>
-                    <div>
-                      <b>Dealer:</b> {displayDealer ?? game.dealer}
-                    </div>
-                    <div>
-                      <b>Turn:</b> {displayTurn ?? game.turn}
-                    </div>
-                    <div>
-                      <b>Score:</b> {teamUi.labelForTeam[teamUi.aTeam]} {game.score[teamUi.aTeam]} — {teamUi.labelForTeam[teamUi.bTeam]} {game.score[teamUi.bTeam]}
-                    </div>
+        <div style={cardStyle}>
+          <div>
+            <b>Status:</b> {game.status}
+          </div>
+          <div>
+            <b>Phase:</b> {game.phase ?? "lobby"}
+          </div>
+          <div>
+            <b>Hand #:</b> {game.handNumber}
+          </div>
+          <div>
+            <b>Dealer:</b> {displayDealer ?? game.dealer}
+          </div>
+          <div>
+            <b>Turn:</b> {displayTurn ?? game.turn}
+          </div>
 
-                    {teamUi.myTeam && (
-                      <div>
-                        <b>Your Team:</b> {teamUi.labelForTeam[teamUi.myTeam]}
-                      </div>
-                      )}
+          {teamUi.myTeam && (
+            <div>
+              <b>Your Team:</b> {teamUi.labelForTeam[teamUi.myTeam]}
+            </div>
+            )}
 
-                    {game.upcard && game.phase !== "playing" && (
-                      <div style={{ marginTop: 10 }}>
-                        <div style={{ marginBottom: 10 }}>
-                          <b>Upcard:</b>
-                        </div>
-                        {(() => {
-                          const { rank, suit } = parseCard(game.upcard as CardCode);
-                          return (
-                            <Card
-                              rank={rankLabel(rank)}
-                              suit={suitSymbol(suit)}
-                              selected={false}
-                              onClick={() => {}}
-                              />
-                              );
-                        })()}
-                      </div>
-                      )}
+          {game.upcard && game.phase !== "playing" && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ marginBottom: 10 }}>
+                <b>Upcard:</b>
+              </div>
+              {(() => {
+                const { rank, suit } = parseCard(game.upcard as CardCode);
+                return (
+                  <Card
+                    rank={rankLabel(rank)}
+                    suit={suitSymbol(suit)}
+                    selected={false}
+                    onClick={() => {}}
+                    />
+                    );
+              })()}
+            </div>
+            )}
 
-                    {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
-                      <div style={{ marginTop: 10 }}>
-                        <b>Trump:</b> {suitSymbol(game.trump)}
-                        {game.makerSeat && (
-                          <span style={{ marginLeft: 8, color: "#555" }}>
-                            (maker: {displayMakerSeat ?? game.makerSeat})
-                          </span>
-                          )}
-                      </div>
-                      )}
-                  </div>
+          {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
+            <div style={{ marginTop: 10 }}>
+              <b>Trump:</b> {suitSymbol(game.trump)}
+              {game.makerSeat && (
+                <span style={{ marginLeft: 8, color: "#555" }}>
+                  (maker: {displayMakerSeat ?? game.makerSeat})
+                </span>
+                )}
+            </div>
+            )}
+        </div>
           {/* Turn Banner */}
-          <div
-            style={{
-              padding: 12,
-              borderRadius: 12,
-              marginBottom: 12,
-              background: isMyTurn ? "#d1e7dd" : "#f8f9fa",
-              border: `1px solid ${isMyTurn ? "#badbcc" : "#ddd"}`,
-              fontWeight: 600,
-            }}
-          >
-            {game.phase?.startsWith("bidding") ? (
-              isMyTurn ? (
-                <>
-                🟢{" "}
-                {game.phase === "bidding_round_2" &&
-                (game.bidding?.passes?.length ?? 0) === 3 &&
-                mySeat === game.dealer
-                ? "Dealer must choose trump"
-                : "Your turn to bid"}
-                </>
+        <div
+          style={{
+            padding: 12,
+            borderRadius: 12,
+            marginBottom: 12,
+            background: isMyTurn ? "#d1e7dd" : "#f8f9fa",
+            border: `1px solid ${isMyTurn ? "#badbcc" : "#ddd"}`,
+            fontWeight: 600,
+          }}
+        >
+          {game.phase?.startsWith("bidding") ? (
+            isMyTurn ? (
+              <>
+              🟢{" "}
+              {game.phase === "bidding_round_2" &&
+              (game.bidding?.passes?.length ?? 0) === 3 &&
+              mySeat === game.dealer
+              ? "Dealer must choose trump"
+              : "Your turn to bid"}
+              </>
+              ) : (
+              <>⏳ Waiting for {turnName} to bid…</>
+              )
+              ) : game.phase === "dealer_discard" ? (
+              mySeat === game.dealer ? (
+                <>🟢 Dealer: pick up the upcard and discard</>
                 ) : (
-                <>⏳ Waiting for {turnName} to bid…</>
+                <>⏳ Waiting for dealer ({displayDealer ?? game.dealer}) to discard…</>
                 )
-                ) : game.phase === "dealer_discard" ? (
-                mySeat === game.dealer ? (
-                  <>🟢 Dealer: pick up the upcard and discard</>
+                ) : game.phase === "playing" ? (
+                isMyTurn ? (
+                  <>🟢 Your turn</>
                   ) : (
-                  <>⏳ Waiting for dealer ({displayDealer ?? game.dealer}) to discard…</>
+                  <>⏳ Waiting for {turnName}…</>
                   )
-                  ) : game.phase === "playing" ? (
-                  isMyTurn ? (
-                    <>🟢 Your turn</>
-                    ) : (
-                    <>⏳ Waiting for {turnName}…</>
-                    )
-                    ) : (
-                    <>Waiting…</>
-                    )}
-                  </div>
+                  ) : (
+                  <>Waiting…</>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, marginBottom: 12 }}>
+
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "6px 10px",
+                      borderRadius: 999,
+                      border: "1px solid #ddd",
+                      background: "#fafafa",
+                      fontSize: 18,
+                      fontWeight: 800,
+                      lineHeight: 1,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#666" }}>Team A</span>
+                    <span style={{ minWidth: 18, textAlign: "center" }}>{scoreNS}</span>
+                    <span style={{ color: "#bbb", fontWeight: 700 }}>–</span>
+                    <span style={{ minWidth: 18, textAlign: "center" }}>{scoreEW}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#666" }}>Team B</span>
+                  </span>
+                </div>
 
           {/* Tricks tracker (Team A = NS, Team B = EW) */}
-                  {game.phase === "playing" && (
-                    <TrickMeter
-                      aLabel={teamUi.labelForTeam[teamUi.aTeam]}
-                      aCount={game.tricksTaken?.[teamUi.aTeam] ?? 0}
-                      bLabel={teamUi.labelForTeam[teamUi.bTeam]}
-                      bCount={game.tricksTaken?.[teamUi.bTeam] ?? 0}
-                      />
-                      )}
+                {game.phase === "playing" && (
+                  <TrickMeter
+                    aLabel={teamUi.labelForTeam[teamUi.aTeam]}
+                    aCount={game.tricksTaken?.[teamUi.aTeam] ?? 0}
+                    bLabel={teamUi.labelForTeam[teamUi.bTeam]}
+                    bCount={game.tricksTaken?.[teamUi.bTeam] ?? 0}
+                    />
+                    )}
 
           {/* Bidding UI (Round 1) */}
-                  {game.phase === "bidding_round_1" && (
-                    <div style={{ ...cardStyle, marginTop: 12 }}>
-                      <h4 style={{ marginTop: 0 }}>Bidding (Round 1)</h4>
+                {game.phase === "bidding_round_1" && (
+                  <div style={{ ...cardStyle, marginTop: 12 }}>
+                    <h4 style={{ marginTop: 0 }}>Bidding (Round 1)</h4>
 
-                      <div style={{ marginBottom: 8 }}>
-                        <b>Current turn:</b> {displayTurn ?? game.turn}
-                        {displayPasses.length > 0 && (
-                          <span style={{ marginLeft: 10, color: "#555" }}>
-                            (passed: {displayPasses.join(", ")})
-                          </span>
-                          )}
-                      </div>
-
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <button
-                          onClick={bidOrderUp}
-                          disabled={!mySeat || mySeat !== game.turn}
-                          style={{ ...btnStyle, flex: 1 }}
-                        >
-                          Order Up
-                        </button>
-                        <button
-                          onClick={bidPassRound1}
-                          disabled={!mySeat || mySeat !== game.turn}
-                          style={{ ...btnStyle, flex: 1 }}
-                        >
-                          Pass
-                        </button>
-                      </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <b>Current turn:</b> {displayTurn ?? game.turn}
+                      {displayPasses.length > 0 && (
+                        <span style={{ marginLeft: 10, color: "#555" }}>
+                          (passed: {displayPasses.join(", ")})
+                        </span>
+                        )}
                     </div>
-                    )}
+
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        onClick={bidOrderUp}
+                        disabled={!mySeat || mySeat !== game.turn}
+                        style={{ ...btnStyle, flex: 1 }}
+                      >
+                        Order Up
+                      </button>
+                      <button
+                        onClick={bidPassRound1}
+                        disabled={!mySeat || mySeat !== game.turn}
+                        style={{ ...btnStyle, flex: 1 }}
+                      >
+                        Pass
+                      </button>
+                    </div>
+                  </div>
+                  )}
 
           {/* Bidding UI (Round 2) */}
-                  {game.phase === "bidding_round_2" && (
-                    <div style={{ ...cardStyle, marginTop: 12 }}>
-                      <h4 style={{ marginTop: 0 }}>Bidding (Round 2)</h4>
+                {game.phase === "bidding_round_2" && (
+                  <div style={{ ...cardStyle, marginTop: 12 }}>
+                    <h4 style={{ marginTop: 0 }}>Bidding (Round 2)</h4>
 
-                      <div style={{ marginBottom: 8 }}>
-                        <b>Current turn:</b> {displayTurn ?? game.turn}
-                        {isDealerStuck ? (
-                          <span style={{ marginLeft: 8, color: "#b00" }}>
-                            ({displayDealer ?? game.dealer} dealer must choose)
-                          </span>
-                          ) : null}
+                    <div style={{ marginBottom: 8 }}>
+                      <b>Current turn:</b> {displayTurn ?? game.turn}
+                      {isDealerStuck ? (
+                        <span style={{ marginLeft: 8, color: "#b00" }}>
+                          ({displayDealer ?? game.dealer} dealer must choose)
+                        </span>
+                        ) : null}
 
-                        {displayPasses.length > 0 && (
-                          <div style={{ marginTop: 6, color: "#555", fontSize: 13 }}>
-                            Passed: {displayPasses.join(", ")}
-                          </div>
-                          )}
-                      </div>
-
-                      <div style={{ marginBottom: 10, color: "#555" }}>
-                        Choose trump (cannot be the upcard suit
-                          {upcardSuit ? ` ${suitSymbol(upcardSuit)}` : ""}).
-                      </div>
-
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                        {round2AllowedSuits.map((suit) => (
-                          <button
-                            key={suit}
-                            onClick={() => bidCallTrump(suit)}
-                            disabled={!mySeat || mySeat !== game.turn}
-                            style={{ ...btnStyle, padding: "12px 10px" }}
-                          >
-                            {suitSymbol(suit)}
-                          </button>
-                          ))}
-                      </div>
-
-                      {!isDealerStuck && (
-                        <button
-                          onClick={bidPassRound2}
-                          disabled={!mySeat || mySeat !== game.turn}
-                          style={{ ...btnStyle, width: "100%", marginTop: 10 }}
-                        >
-                          Pass
-                        </button>
-                        )}
-
-                      {isDealerStuck && (
-                        <div style={{ marginTop: 10, fontSize: 13, color: "#b00" }}>
-                          Screw the dealer: you can’t pass here.
+                      {displayPasses.length > 0 && (
+                        <div style={{ marginTop: 6, color: "#555", fontSize: 13 }}>
+                          Passed: {displayPasses.join(", ")}
                         </div>
                         )}
                     </div>
-                    )}
 
-          {/* Dealer discard */}
-                  {game.phase === "dealer_discard" && (
-                    <div style={{ ...cardStyle, marginTop: 12 }}>
-                      <h4 style={{ marginTop: 0 }}>Dealer: Pick up & Discard</h4>
+                    <div style={{ marginBottom: 10, color: "#555" }}>
+                      Choose trump (cannot be the upcard suit
+                        {upcardSuit ? ` ${suitSymbol(upcardSuit)}` : ""}).
+                    </div>
 
-                      <div style={{ marginBottom: 8 }}>
-                        <b>Trump:</b> {game.trump ? suitSymbol(game.trump) : "(unknown)"}
-                      </div>
-
-                      {mySeat === game.dealer ? (
-                        <>
-                        <div style={{ marginBottom: 10, color: "#555" }}>
-                          Select a card to discard.
-                        </div>
-
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                      {round2AllowedSuits.map((suit) => (
                         <button
-                          onClick={() => {
-                            if (selectedCard == null) {
-                              setErr("Select a card to discard.");
-                              return;
-                            }
-                            const code = displayHand[selectedCard];
-                            if (!code) {
-                              setErr("Select a card to discard.");
-                              return;
-                            }
-                            dealerPickupAndDiscard(code);
-                          }}
-                          style={{ ...btnStyle, width: "100%" }}
+                          key={suit}
+                          onClick={() => bidCallTrump(suit)}
+                          disabled={!mySeat || mySeat !== game.turn}
+                          style={{ ...btnStyle, padding: "12px 10px" }}
                         >
-                          Discard Selected Card
+                          {suitSymbol(suit)}
                         </button>
-                        </>
-                        ) : (
-                        <div style={{ color: "#555" }}>
-                          Waiting for dealer ({displayDealer ?? game.dealer}) to pick up and discard…
-                        </div>
-                        )}
+                        ))}
+                    </div>
+
+                    {!isDealerStuck && (
+                      <button
+                        onClick={bidPassRound2}
+                        disabled={!mySeat || mySeat !== game.turn}
+                        style={{ ...btnStyle, width: "100%", marginTop: 10 }}
+                      >
+                        Pass
+                      </button>
+                      )}
+
+                    {isDealerStuck && (
+                      <div style={{ marginTop: 10, fontSize: 13, color: "#b00" }}>
+                        Screw the dealer: you can’t pass here.
                       </div>
                       )}
+                  </div>
+                  )}
+
+          {/* Dealer discard */}
+                {game.phase === "dealer_discard" && (
+                  <div style={{ ...cardStyle, marginTop: 12 }}>
+                    <h4 style={{ marginTop: 0 }}>Dealer: Pick up & Discard</h4>
+
+                    <div style={{ marginBottom: 8 }}>
+                      <b>Trump:</b> {game.trump ? suitSymbol(game.trump) : "(unknown)"}
+                    </div>
+
+                    {mySeat === game.dealer ? (
+                      <>
+                      <div style={{ marginBottom: 10, color: "#555" }}>
+                        Select a card to discard.
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          if (selectedCard == null) {
+                            setErr("Select a card to discard.");
+                            return;
+                          }
+                          const code = displayHand[selectedCard];
+                          if (!code) {
+                            setErr("Select a card to discard.");
+                            return;
+                          }
+                          dealerPickupAndDiscard(code);
+                        }}
+                        style={{ ...btnStyle, width: "100%" }}
+                      >
+                        Discard Selected Card
+                      </button>
+                      </>
+                      ) : (
+                      <div style={{ color: "#555" }}>
+                        Waiting for dealer ({displayDealer ?? game.dealer}) to pick up and discard…
+                      </div>
+                      )}
+                    </div>
+                    )}
 
           {/* Seats */}
 
@@ -1292,63 +1325,63 @@ return;
                 </div>
 
           {/* My private hand */}
-                  <h4 style={{ marginTop: 24 }}>Your Hand</h4>
-                  <div
-  style={{
-    display: "flex",
-    gap: 10,
-    overflowX: "auto",
+                <h4 style={{ marginTop: 24 }}>Your Hand</h4>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    overflowX: "auto",
     overflowY: "visible",   // 👈 key line
     paddingTop: 10,         // 👈 gives room for the lift
     paddingBottom: 8,
   }}
 >
-                    {displayHand.map((code, i) => {
-                      const { rank, suit } = parseCard(code);
+  {displayHand.map((code, i) => {
+    const { rank, suit } = parseCard(code);
 
-                      const isPlayingTurn = game?.phase === "playing" && isMyTurn;
-                      const mustFollow = playableInfo.mustFollow;
-                      const playableSet = playableInfo.playableSet;
-                      const isPlayable =
-                      !isPlayingTurn || !playableSet ? true : playableSet.has(code);
+    const isPlayingTurn = game?.phase === "playing" && isMyTurn;
+    const mustFollow = playableInfo.mustFollow;
+    const playableSet = playableInfo.playableSet;
+    const isPlayable =
+    !isPlayingTurn || !playableSet ? true : playableSet.has(code);
 
-                      return (
-                        <div
-                          key={code + i}
-                          style={{
-                            opacity: isPlayable ? 1 : 0.35,
-                            pointerEvents: isPlayable ? "auto" : "none",
-                            transition: "opacity 120ms ease",
-                          }}
-                          title={!isPlayable && mustFollow ? `Must follow ${mustFollow}` : undefined}
-                        >
-                          <Card
-                            rank={rankLabel(rank)}
-                            suit={suitSymbol(suit)}
-                            selected={selectedCard === i}
-                            onClick={() => {
+    return (
+      <div
+        key={code + i}
+        style={{
+          opacity: isPlayable ? 1 : 0.35,
+          pointerEvents: isPlayable ? "auto" : "none",
+          transition: "opacity 120ms ease",
+        }}
+        title={!isPlayable && mustFollow ? `Must follow ${mustFollow}` : undefined}
+      >
+        <Card
+          rank={rankLabel(rank)}
+          suit={suitSymbol(suit)}
+          selected={selectedCard === i}
+          onClick={() => {
           // Dealer discard: still uses selection
-                              if (game?.phase === "dealer_discard") {
-                                setSelectedCard(selectedCard === i ? null : i);
-                                return;
-                              }
+            if (game?.phase === "dealer_discard") {
+              setSelectedCard(selectedCard === i ? null : i);
+              return;
+            }
 
           // Playing: click plays immediately
-                              if (game?.phase === "playing" && isMyTurn) {
-                                playCard(code);
-                                return;
-                              }
+            if (game?.phase === "playing" && isMyTurn) {
+              playCard(code);
+              return;
+            }
 
           // Other phases: selection only
-                              setSelectedCard(selectedCard === i ? null : i);
-                            }}
-                          />
-                        </div>
-                        );
-                    })}
-                  </div>
-                  </>
-                  )}
+            setSelectedCard(selectedCard === i ? null : i);
+          }}
+        />
+      </div>
+      );
+  })}
+</div>
+</>
+)}
 </div>
 );
 }
@@ -1367,26 +1400,26 @@ function SeatCard(props: {
 
   // E: card left of text | W: card right of text | N: card below text | S: card above text
   const layout =
-    seat === "E"
-      ? { dir: "row" as const, textAlign: "left" as const, textItems: "flex-start" as const }
-      : seat === "W"
-      ? { dir: "row-reverse" as const, textAlign: "right" as const, textItems: "flex-end" as const }
-      : seat === "N"
+  seat === "E"
+  ? { dir: "row" as const, textAlign: "left" as const, textItems: "flex-start" as const }
+  : seat === "W"
+  ? { dir: "row-reverse" as const, textAlign: "right" as const, textItems: "flex-end" as const }
+  : seat === "N"
       ? { dir: "column-reverse" as const, textAlign: "center" as const, textItems: "center" as const } // card below
       : { dir: "column" as const, textAlign: "center" as const, textItems: "center" as const }; // S card above
 
-  const teamIsA = teamLabel === "Team A";
+      const teamIsA = teamLabel === "Team A";
 
-  return (
-    <div
-      style={{
-        ...cardStyle,
-        borderColor: isTurn ? "#0a7" : "#ddd",
-        boxShadow: isTurn ? "0 0 0 2px rgba(0,170,119,0.15)" : undefined,
-        display: "flex",
-        flexDirection: "column",
-        paddingTop: 6,
-        paddingBottom: 10,
+      return (
+        <div
+          style={{
+            ...cardStyle,
+            borderColor: isTurn ? "#0a7" : "#ddd",
+            boxShadow: isTurn ? "0 0 0 2px rgba(0,170,119,0.15)" : undefined,
+            display: "flex",
+            flexDirection: "column",
+            paddingTop: 6,
+            paddingBottom: 10,
         minHeight: 130, // smaller than before, keeps boxes consistent
       }}
     >
@@ -1416,10 +1449,10 @@ function SeatCard(props: {
                     onClick={() => {}}
                   />
                 </div>
-              );
+                );
             })()}
           </div>
-        ) : null}
+          ) : null}
 
         {/* Name + Team */}
         <div
@@ -1451,7 +1484,7 @@ function SeatCard(props: {
                 {teamLabel}
               </span>
             </div>
-          ) : null}
+            ) : null}
         </div>
       </div>
 
@@ -1459,10 +1492,10 @@ function SeatCard(props: {
         <button onClick={onClaim} style={{ ...btnStyle, marginTop: 10, width: "100%" }}>
           Claim
         </button>
-      ) : null}
+        ) : null}
     </div>
-  );
-}
+    );
+    }
 
 /**
  * ==========================================================
@@ -1470,43 +1503,43 @@ function SeatCard(props: {
  * ==========================================================
  */
 
-const alertStyle: React.CSSProperties = {
-  padding: 12,
-  background: "#fff3cd",
-  border: "1px solid #ffecb5",
-  borderRadius: 10,
-  marginBottom: 12,
-};
+    const alertStyle: React.CSSProperties = {
+      padding: 12,
+      background: "#fff3cd",
+      border: "1px solid #ffecb5",
+      borderRadius: 10,
+      marginBottom: 12,
+    };
 
-const cardStyle: React.CSSProperties = {
-  padding: 12,
-  border: "1px solid #ddd",
-  borderRadius: 12,
-  background: "white",
-  marginBottom: 12,
-};
+    const cardStyle: React.CSSProperties = {
+      padding: 12,
+      border: "1px solid #ddd",
+      borderRadius: 12,
+      background: "white",
+      marginBottom: 12,
+    };
 
-const btnStyle: React.CSSProperties = {
-  padding: "10px 14px",
-  borderRadius: 10,
-  border: "1px solid #ccc",
-  background: "white",
-  cursor: "pointer",
-};
+    const btnStyle: React.CSSProperties = {
+      padding: "10px 14px",
+      borderRadius: 10,
+      border: "1px solid #ccc",
+      background: "white",
+      cursor: "pointer",
+    };
 
-const shareStyle: React.CSSProperties = {
-  width: "100%",
-  padding: 8,
-  borderRadius: 8,
-  border: "1px solid #ccc",
-  marginTop: 6,
-};
+    const shareStyle: React.CSSProperties = {
+      width: "100%",
+      padding: 8,
+      borderRadius: 8,
+      border: "1px solid #ccc",
+      marginTop: 6,
+    };
 
-const tableStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr 1fr",
-  gridTemplateRows: "auto auto auto",
-  gap: 10,
-  alignItems: "stretch",
-  justifyItems: "stretch",
-};
+    const tableStyle: React.CSSProperties = {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr 1fr",
+      gridTemplateRows: "auto auto auto",
+      gap: 10,
+      alignItems: "stretch",
+      justifyItems: "stretch",
+    };
