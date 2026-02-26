@@ -8,7 +8,6 @@ import {
   serverTimestamp,
   setDoc,
   writeBatch,
-  updateDoc,
 } from "firebase/firestore";
 
 import { db } from "../firebase";
@@ -70,6 +69,8 @@ type GameDoc = {
 
   tricksTaken?: { NS: number; EW: number } | null;
   trickWinners?: Seat[] | null;
+
+  winnerTeam?: TeamKey | null;
 };
 
 type PlayerDoc = {
@@ -223,22 +224,33 @@ function removeOneCard(hand: CardCode[], code: CardCode): CardCode[] {
   return next;
 }
 
+function rankStrength(code: CardCode): number {
+  const { rank } = parseCard(code);
+  const r = String(rank);
+
+  // Adjust these if your parseCard uses different symbols
+  if (r === "9") return 1;
+  if (r === "10" || r === "T") return 2;
+  if (r === "J") return 3;
+  if (r === "Q") return 4;
+  if (r === "K") return 5;
+  if (r === "A") return 6;
+
+  // fallback
+  const n = Number(r);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function trickStrength(code: CardCode, leadSuit: Suit, trump: Suit): number {
-  // Higher number = stronger
   if (isRightBower(code, trump)) return 200;
   if (isLeftBower(code, trump)) return 199;
 
   const eff = effectiveSuit(code, trump);
-  const { rank } = parseCard(code);
+  const r = rankStrength(code);
 
-  // Trump beats everything else
-  if (eff === trump) return 150 + rank;
-
-  // Following lead suit competes
-  if (eff === leadSuit) return 100 + rank;
-
-  // Off-suit loses
-  return 0 + rank;
+  if (eff === trump) return 150 + r;
+  if (eff === leadSuit) return 100 + r;
+  return 0 + r;
 }
 
 function winnerOfTrick(
@@ -378,7 +390,6 @@ const winnerLabel =
 
   const displayDealer: Seat | null = game?.dealer ? displaySeat(game.dealer) : null;
   const displayTurn: Seat | null = game?.turn ? displaySeat(game.turn) : null;
-  const displayMakerSeat: Seat | null = game?.makerSeat ? displaySeat(game.makerSeat) : null;
 
   const displayPasses: Seat[] = (game?.bidding?.passes ?? []).map((s) => displaySeat(s as Seat));
 
@@ -439,6 +450,7 @@ const winnerLabel =
   }, [game, isMyTurn, mySeat, myHand]);
 
   const renderSeat = (displayPos: Seat, gridColumn: string, gridRow: string) => {
+    if (!game) return null;
     const realSeat = displaySeats[displayPos];
 
     return (
@@ -534,59 +546,6 @@ const winnerLabel =
 
     return () => unsub();
   }, [gameId, uid]);
-
-  /**
-   * ----------------------------------------------------------
-   * Dev only
-   * ----------------------------------------------------------
-   */
-
-  async function devForceWin(team: TeamKey) {
-  if (!gameRef) return;
-
-  const score = team === "NS" ? { NS: 10, EW: 7 } : { NS: 7, EW: 10 };
-
-  try {
-    setErr(null);
-    await updateDoc(gameRef, {
-      updatedAt: serverTimestamp(),
-      score,
-      status: "finished",
-      phase: "lobby",
-      winnerTeam: team,
-
-      // Optional: clear per-hand state so it looks clean
-      currentTrick: null,
-      upcard: null,
-      kitty: null,
-      trump: null,
-      makerSeat: null,
-      bidding: null,
-    });
-  } catch (e: any) {
-    console.error("devForceWin failed:", e);
-    setErr(e?.message ?? String(e));
-  }
-}
-
-async function devResetGame() {
-  if (!gameRef) return;
-  await updateDoc(gameRef, {
-    updatedAt: serverTimestamp(),
-    status: "lobby",
-    phase: "lobby",
-    winnerTeam: null,
-    score: { NS: 0, EW: 0 },
-    currentTrick: null,
-    tricksTaken: { NS: 0, EW: 0 },
-    trickWinners: [],
-    upcard: null,
-    kitty: null,
-    trump: null,
-    makerSeat: null,
-    bidding: null,
-  });
-}
 
   /**
    * ==========================================================
@@ -1115,64 +1074,13 @@ return (
         Start Hand (Deal)
       </button>
 
-      {/* Dev tools */}
-      {/* 
-      {import.meta.env.DEV ? (
-  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, marginBottom: 8 }}>
-    <button
-      style={btnStyle}
-      onClick={() => devForceWin("NS")}
-      title="Dev: set Team A to winning state"
-    >
-      DEV: Team A Wins
-    </button>
-    <button
-      style={btnStyle}
-      onClick={() => devForceWin("EW")}
-      title="Dev: set Team B to winning state"
-    >
-      DEV: Team B Wins
-    </button>
-    <button
-      style={btnStyle}
-      onClick={() => devResetGame()}
-      title="Dev: Reset game"
-    >
-      DEV: Reset game
-    </button>
-  </div>
-) : null}
-  */}
-
       {!game ? (
         <p>Loading…</p>
         ) : (
         <>
 {/* Public/shared game summary */}
         <div style={cardStyle}>
-          {/* 
-          <div>
-            <b>Status:</b> {game.status}
-          </div>
-          <div>
-            <b>Phase:</b> {game.phase ?? "lobby"}
-          </div>
-          <div>
-            <b>Hand #:</b> {game.handNumber}
-          </div>
-          <div>
-            <b>Dealer:</b> {displayDealer ?? game.dealer}
-          </div>
-          <div>
-            <b>Turn:</b> {displayTurn ?? game.turn}
-          </div>
 
-          {teamUi.myTeam && (
-            <div>
-              <b>Your Team:</b> {teamUi.labelForTeam[teamUi.myTeam]}
-            </div>
-            )}
-            */}
 
           {game.upcard && game.phase !== "playing" && (
             <div style={{ marginTop: 10 }}>
@@ -1194,7 +1102,7 @@ return (
             )}
 
           {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
-            <div style={{ marginTop: 10 }}>
+            <div>
               <b>Trump:</b> {suitSymbol(game.trump)}
             </div>
             )}
@@ -1509,7 +1417,7 @@ function SeatCard(props: {
   playedCard?: CardCode | null;
   onClaim: () => void;
 }) {
-  const { seat, label, isYou, isTurn, teamLabel, canClaim, playedCard, onClaim } = props;
+  const { seat, label, isTurn, teamLabel, canClaim, playedCard, onClaim } = props;
 
   // E: card left of text | W: card right of text | N: card below text | S: card above text
   const layout =
