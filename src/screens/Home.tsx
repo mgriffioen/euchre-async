@@ -67,7 +67,7 @@ export default function Home() {
 
   return (
     <div>
-      <p style={{ marginTop: 0 }}>Create a game, then share the URL with friends.</p>
+      <p style={{ marginTop: 0 }}>Hello, create a game, then share the URL with friends.</p>
 
       {error && (
         <div style={{ padding: 12, borderRadius: 10, border: "1px solid #f5c2c7", background: "#f8d7da" }}>
