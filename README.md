@@ -201,29 +201,3 @@ Responsibilities include:
 * Preserve existing Firestore schema
 
 ---
-
-## Development Philosophy
-
-This project prioritizes:
-
-* Small, safe refactors
-* Minimal regressions
-* Firestore-safe transactions
-* UI improvements without touching core game rules
-
-Gameplay logic should remain stable while UI evolves.
-
----
-
-## Long-Term Vision
-
-Async Euchre aims to be:
-
-* lightweight
-* mobile-friendly
-* low-friction for friend groups
-* asynchronous by design
-
-No accounts, no downloads — just share a link and play.
-
----
