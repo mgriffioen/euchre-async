@@ -1194,7 +1194,7 @@ return (
             )}
 
           {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
-            <div style={{ marginTop: 10 }}>
+            <div>
               <b>Trump:</b> {suitSymbol(game.trump)}
             </div>
             )}
