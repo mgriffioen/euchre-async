@@ -94,6 +94,12 @@ function otherTeam(team: TeamKey): TeamKey {
   return team === "NS" ? "EW" : "NS";
 }
 
+function winningTeam(score: { NS: number; EW: number }, target = 10): TeamKey | null {
+  if (score.NS >= target) return "NS";
+  if (score.EW >= target) return "EW";
+  return null;
+}
+
 function TrickMeter(props: {
   aLabel: string;
   aCount: number;
@@ -566,6 +572,14 @@ export default function Game() {
       return;
     }
 
+    const score = g.score ?? { NS: 0, EW: 0 };
+const winner = winningTeam(score, 10);
+
+if (g.status === "finished" || winner) {
+  setErr(`Game over — ${winner ? (winner === "NS" ? "Team A" : "Team B") : "a team"} reached 10.`);
+  return;
+}
+
     const dealer: Seat = game.dealer ? nextSeat(game.dealer) : "N";
     const firstToAct: Seat = nextSeat(dealer);
 
@@ -910,25 +924,52 @@ export default function Game() {
 
           tx.update(playerRef, { hand: nextHand, updatedAt: serverTimestamp() });
 
-          // End of hand after 5 tricks (simple reset to lobby for now)
-          if (currentTrickNumber >= 5) {
-            tx.update(gameRef, {
-              updatedAt: serverTimestamp(),
-              tricksTaken: nextTaken,
-              trickWinners: nextWinners,
+// End of hand after 5 tricks → award points, then reset to lobby
+if (currentTrickNumber >= 5) {
+  const makerSeat = g.makerSeat as Seat | null;
+  const makerTeam: TeamKey | null = makerSeat ? teamKeyForSeat(makerSeat) : null;
+  const defenseTeam: TeamKey | null = makerTeam ? otherTeam(makerTeam) : null;
 
-              currentTrick: null,
-              status: "lobby",
-              phase: "lobby",
+  // Default to existing score (schema already has it)
+  const prevScore = g.score ?? { NS: 0, EW: 0 };
+  const nextScore = { ...prevScore };
 
-              upcard: null,
-              kitty: null,
-              trump: null,
-              makerSeat: null,
-              bidding: null,
-            });
-            return;
-          }
+  if (makerTeam && defenseTeam) {
+    const makerTricks = nextTaken[makerTeam];
+
+    if (makerTricks >= 5) {
+      nextScore[makerTeam] += 2;
+    } else if (makerTricks >= 3) {
+      nextScore[makerTeam] += 1;
+    } else {
+      // Euchred
+      nextScore[defenseTeam] += 2;
+    }
+  }
+
+  const winner = winningTeam(nextScore, 10);
+
+tx.update(gameRef, {
+  updatedAt: serverTimestamp(),
+  tricksTaken: nextTaken,
+  trickWinners: nextWinners,
+  score: nextScore,
+
+  // ✅ win condition
+  status: winner ? "finished" : "lobby",
+  winnerTeam: winner, // NEW FIELD (additive)
+
+  // reset per-hand state (keep your current behavior)
+  phase: "lobby",
+  currentTrick: null,
+  upcard: null,
+  kitty: null,
+  trump: null,
+  makerSeat: null,
+  bidding: null,
+});
+return;
+}
 
           // Next trick (winner leads)
           tx.update(gameRef, {
@@ -993,7 +1034,7 @@ export default function Game() {
       {/* Host-only for now: N starts the hand */}
         <button
           onClick={startHand}
-          disabled={!game || mySeat !== "N"}
+          disabled={game?.status === "finished"}
           style={{ ...btnStyle, width: "100%", marginBottom: 12 }}
         >
           Start Hand (Deal)
