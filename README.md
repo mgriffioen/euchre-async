@@ -1,201 +1,122 @@
 # Async Euchre
 
-Async Euchre is a **phone-first, browser-based multiplayer Euchre game** built with React and Firebase.
+Async Euchre is a **phone-first, browser-based multiplayer Euchre game** built with **React + TypeScript + Firebase**.
 
 The goal is a lightweight, asynchronous experience where friends can:
 
-* join a game via link
-* claim seats at a virtual table
-* take turns in real time or asynchronously
-* play without everyone being online simultaneously
+- join a game via link
+- claim seats at a virtual table
+- take turns in real time or asynchronously
+- play without everyone being online simultaneously
 
 ---
 
-## Project Status
+## Current Status
 
-This project is in **active development**.
+This project is in **active development** with the full core gameplay loop implemented:
 
-Core game flow now exists end-to-end:
+**Lobby → Deal → Bidding → Dealer Pickup/Discard → Trick Play → Hand Score → Match Win (first to 10)**
 
-* Lobby → Deal → Bidding → Dealer Pickup → Trick Play → Hand End
-
-Current focus areas:
-
-* UI polish and layout consistency
-* Safe component refactors inside `Game.tsx`
-* Preparing for score progression across multiple hands
+Current work focuses on polish, guardrails, and incremental gameplay completeness.
 
 ---
 
 ## Tech Stack
 
-* **React + Vite**
-* **TypeScript**
-* **Firebase Authentication (Anonymous)**
-* **Cloud Firestore (Realtime state)**
-* Mobile-first responsive UI
+- React + Vite
+- TypeScript
+- Firebase Authentication (Anonymous)
+- Cloud Firestore (Realtime state)
 
 ---
 
-## Architecture Overview
+## How It Works (High Level)
 
-### Firestore Model (High Level)
+### Real Seats vs Display Seats
 
-```
-games/{gameId}
-  - shared public game state
-  - seats, dealer, turn, phase
-  - bidding state
-  - trick state
-  - scoring
+Firestore stores **REAL seats** as `N / E / S / W`.
 
-games/{gameId}/players/{uid}
-  - player metadata
-  - private hand (only visible to owner)
-```
+The UI rotates seats so the **local player is always visually South**. This is a view-only mapping:
 
-### Key Design Principles
+- ✅ Game logic always uses REAL seats
+- ✅ Firestore reads/writes always use REAL seats
+- ✅ Rotation only affects rendering
 
-* Firestore stores **REAL seats**: `N / E / S / W`
-* UI rotates seats so the **local player always displays as South**
-* Game logic always runs against real seats
-* UI mapping handles display rotation only
+### Teams
+
+Team naming is consistent for all players:
+
+- **Team A = North/South (NS)**
+- **Team B = East/West (EW)**
 
 ---
 
-## Current Gameplay Features
+## Working Features
 
-### Core Multiplayer
+### Multiplayer + Lobby
+- Anonymous Firebase authentication
+- Game join via URL
+- Realtime multiplayer sync via Firestore
+- Seat claiming (N / E / S / W)
+- Player subcollection: `games/{gameId}/players/{uid}`
 
-* Anonymous Firebase authentication
-* Game creation + join via URL
-* Realtime multiplayer sync via Firestore
-* Seat claiming (N / E / S / W)
-* Player subcollection (`players/{uid}`)
+### Deal / Hand Start
+- Euchre deck generation (9–A)
+- Shuffle + deal
+- Private hands per player stored under each player doc
+- Upcard + kitty generation
+- Dealer rotation and turn assignment
 
----
-
-### Hand Flow
-
-* Start Hand / Deal flow
-* Euchre deck generation (9–A)
-* Random shuffle + clockwise deal
-* Private hands per player
-* Upcard generation
-* Dealer rotation per hand
-
----
-
-### Bidding System
-
-Implemented phases:
-
-1. `bidding_round_1`
-
-   * Order up or pass
-2. `dealer_discard`
-
-   * Dealer picks up upcard and discards
-3. `bidding_round_2`
-
-   * Call alternate trump
-   * Screw-the-dealer enforced
-
----
-
-### Trick Play
-
-* Turn-based play enforced
-* Follow-suit rules enforced
-* Trump + bower logic implemented
-* Trick winner calculation
-* Trick tracking per hand
-* Automatic transition to next trick
-* Hand resets after 5 tricks (temporary lobby reset)
-
----
-
-### Table & UI System
-
-#### Seat Rotation
-
-* Local player always shown as **South**
-* Internal game logic remains seat-agnostic
-
-#### Team System
-
-* Team A = North / South
-* Team B = East / West
-* Labels remain consistent across viewers
-
-#### Seat Cards
-
-* Player name display
-* Team badge coloring
-* Turn highlighting (green border)
-* Played cards rendered inside seat boxes
-
-Played card alignment:
-
-* N → bottom (toward center)
-* E → left
-* S → top
-* W → right
-
----
+### Bidding
+- Round 1: order up / pass
+- Round 2: choose trump (cannot be upcard suit)
+- Screw-the-dealer enforced (dealer must choose if it comes back)
 
 ### Dealer Pickup / Discard
+- Dealer temporarily sees 6 cards (hand + upcard)
+- Dealer selects a discard
+- Discard moves to kitty
+- Play begins automatically after discard
 
-* Dealer temporarily sees 6 cards (hand + upcard)
-* Select card to discard
-* Discard moves to kitty
-* Play begins automatically after discard
+### Trick Play
+- Turn-based play enforced
+- Follow-suit enforcement (with effective suit for bowers)
+- Trump + bower logic implemented
+- Trick winner calculation
+- Trick progression until 5 tricks complete
+
+### Scoring + Win Condition
+- End-of-hand scoring updates total score (Team A vs Team B)
+- Match win condition: **first to 10**
+- Finished-state guards prevent late actions after game completion
+- Winner banner displayed when match ends (if enabled in UI)
+
+### UI
+- Seat-based table layout (internal N/E/S/W)
+- Seats rotate so local player is always visually South
+- Seat cards show:
+  - player name
+  - team badge
+  - played cards inside seat boxes
+  - turn highlighting
+- Mobile-friendly layout
 
 ---
 
-## Important File
+## Firestore Data Model (Simplified)
 
-### `src/screens/Game.tsx`
+```text
+games/{gameId}
+  - status, phase
+  - seats: { N, E, S, W }
+  - dealer, turn
+  - bidding state
+  - upcard, kitty, trump, makerSeat
+  - trick state (currentTrick, tricksTaken, trickWinners)
+  - score
+  - winnerTeam (when finished)
 
-Currently the main gameplay screen.
-
-Responsibilities include:
-
-* Firestore subscriptions
-* Turn logic
-* Bidding actions
-* Dealer discard flow
-* Trick resolution
-* UI rendering
-
- Planned work:
-
-* Incremental extraction of UI components
-* Maintain gameplay logic stability during refactors
-
----
-
-## Next Milestones
-
-### UI / UX
-
-* Improve seat layout consistency
-* Reduce duplication in seat rendering
-* Cleaner component structure
-* Better visual trick center feedback
-
-### Gameplay
-
-* Persistent scoring between hands
-* End-of-hand scoring rules (makers / euchres)
-* Game-end conditions
-
-### Technical
-
-* Break `Game.tsx` into:
-
-  * SeatTable
-  * HandRow
-  * BiddingPanel
-  * TurnBanner
-* Preserve existing Firestore schema
+games/{gameId}/players/{uid}
+  - name
+  - seat
+  - hand (private to that player via rules)
