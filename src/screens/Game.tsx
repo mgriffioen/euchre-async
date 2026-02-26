@@ -93,6 +93,10 @@ function teamKeyForSeat(seat: Seat): TeamKey {
   return seat === "N" || seat === "S" ? "NS" : "EW";
 }
 
+function otherTeam(team: TeamKey): TeamKey {
+  return team === "NS" ? "EW" : "NS";
+}
+
 function winningTeam(score: { NS: number; EW: number }, target = 10): TeamKey | null {
   if (score.NS >= target) return "NS";
   if (score.EW >= target) return "EW";
@@ -543,59 +547,6 @@ const winnerLabel =
 
     return () => unsub();
   }, [gameId, uid]);
-
-  /**
-   * ----------------------------------------------------------
-   * Dev only
-   * ----------------------------------------------------------
-   */
-
-  async function devForceWin(team: TeamKey) {
-  if (!gameRef) return;
-
-  const score = team === "NS" ? { NS: 10, EW: 7 } : { NS: 7, EW: 10 };
-
-  try {
-    setErr(null);
-    await updateDoc(gameRef, {
-      updatedAt: serverTimestamp(),
-      score,
-      status: "finished",
-      phase: "lobby",
-      winnerTeam: team,
-
-      // Optional: clear per-hand state so it looks clean
-      currentTrick: null,
-      upcard: null,
-      kitty: null,
-      trump: null,
-      makerSeat: null,
-      bidding: null,
-    });
-  } catch (e: any) {
-    console.error("devForceWin failed:", e);
-    setErr(e?.message ?? String(e));
-  }
-}
-
-async function devResetGame() {
-  if (!gameRef) return;
-  await updateDoc(gameRef, {
-    updatedAt: serverTimestamp(),
-    status: "lobby",
-    phase: "lobby",
-    winnerTeam: null,
-    score: { NS: 0, EW: 0 },
-    currentTrick: null,
-    tricksTaken: { NS: 0, EW: 0 },
-    trickWinners: [],
-    upcard: null,
-    kitty: null,
-    trump: null,
-    makerSeat: null,
-    bidding: null,
-  });
-}
 
   /**
    * ==========================================================
@@ -1124,64 +1075,13 @@ return (
         Start Hand (Deal)
       </button>
 
-      {/* Dev tools */}
-      {/* 
-      {import.meta.env.DEV ? (
-  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, marginBottom: 8 }}>
-    <button
-      style={btnStyle}
-      onClick={() => devForceWin("NS")}
-      title="Dev: set Team A to winning state"
-    >
-      DEV: Team A Wins
-    </button>
-    <button
-      style={btnStyle}
-      onClick={() => devForceWin("EW")}
-      title="Dev: set Team B to winning state"
-    >
-      DEV: Team B Wins
-    </button>
-    <button
-      style={btnStyle}
-      onClick={() => devResetGame()}
-      title="Dev: Reset game"
-    >
-      DEV: Reset game
-    </button>
-  </div>
-) : null}
-  */}
-
       {!game ? (
         <p>Loading…</p>
         ) : (
         <>
 {/* Public/shared game summary */}
         <div style={cardStyle}>
-          {/* 
-          <div>
-            <b>Status:</b> {game.status}
-          </div>
-          <div>
-            <b>Phase:</b> {game.phase ?? "lobby"}
-          </div>
-          <div>
-            <b>Hand #:</b> {game.handNumber}
-          </div>
-          <div>
-            <b>Dealer:</b> {displayDealer ?? game.dealer}
-          </div>
-          <div>
-            <b>Turn:</b> {displayTurn ?? game.turn}
-          </div>
 
-          {teamUi.myTeam && (
-            <div>
-              <b>Your Team:</b> {teamUi.labelForTeam[teamUi.myTeam]}
-            </div>
-            )}
-            */}
 
           {game.upcard && game.phase !== "playing" && (
             <div style={{ marginTop: 10 }}>
