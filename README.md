@@ -11,7 +11,7 @@ The goal is a lightweight, asynchronous experience where friends can:
 
 ---
 
-## 🚧 Project Status
+## Project Status
 
 This project is in **active development**.
 
@@ -27,7 +27,7 @@ Current focus areas:
 
 ---
 
-## 🧱 Tech Stack
+## Tech Stack
 
 * **React + Vite**
 * **TypeScript**
@@ -37,7 +37,7 @@ Current focus areas:
 
 ---
 
-## 🧠 Architecture Overview
+## Architecture Overview
 
 ### Firestore Model (High Level)
 
@@ -63,7 +63,7 @@ games/{gameId}/players/{uid}
 
 ---
 
-## 🎮 Current Gameplay Features
+## Current Gameplay Features
 
 ### Core Multiplayer
 
@@ -168,14 +168,14 @@ Responsibilities include:
 * Trick resolution
 * UI rendering
 
-⚠️ Planned work:
+ Planned work:
 
 * Incremental extraction of UI components
 * Maintain gameplay logic stability during refactors
 
 ---
 
-## 🎯 Next Milestones
+## Next Milestones
 
 ### UI / UX
 
@@ -202,7 +202,7 @@ Responsibilities include:
 
 ---
 
-## 🧪 Development Philosophy
+## Development Philosophy
 
 This project prioritizes:
 
@@ -215,7 +215,7 @@ Gameplay logic should remain stable while UI evolves.
 
 ---
 
-## 🛣️ Long-Term Vision
+## Long-Term Vision
 
 Async Euchre aims to be:
 
