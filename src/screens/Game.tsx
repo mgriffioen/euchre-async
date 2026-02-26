@@ -70,6 +70,8 @@ type GameDoc = {
 
   tricksTaken?: { NS: number; EW: number } | null;
   trickWinners?: Seat[] | null;
+
+  winnerTeam?: TeamKey | null;
 };
 
 type PlayerDoc = {
@@ -385,7 +387,6 @@ const winnerLabel =
 
   const displayDealer: Seat | null = game?.dealer ? displaySeat(game.dealer) : null;
   const displayTurn: Seat | null = game?.turn ? displaySeat(game.turn) : null;
-  const displayMakerSeat: Seat | null = game?.makerSeat ? displaySeat(game.makerSeat) : null;
 
   const displayPasses: Seat[] = (game?.bidding?.passes ?? []).map((s) => displaySeat(s as Seat));
 
@@ -446,6 +447,7 @@ const winnerLabel =
   }, [game, isMyTurn, mySeat, myHand]);
 
   const renderSeat = (displayPos: Seat, gridColumn: string, gridRow: string) => {
+    if (!game) return null;
     const realSeat = displaySeats[displayPos];
 
     return (
