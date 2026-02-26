@@ -90,10 +90,6 @@ function teamKeyForSeat(seat: Seat): TeamKey {
   return seat === "N" || seat === "S" ? "NS" : "EW";
 }
 
-function otherTeam(team: TeamKey): TeamKey {
-  return team === "NS" ? "EW" : "NS";
-}
-
 /**
  * ==========================================================
  * Styles
@@ -208,8 +204,7 @@ function SeatCard(props: {
   playedCard?: CardCode | null;
   onClaim: () => void;
 }) {
-  const { seat, label, isYou, isTurn, teamLabel, canClaim, playedCard, onClaim } =
-    props;
+  const { seat, label, isTurn, teamLabel, canClaim, playedCard, onClaim } = props;
 
   // E: card left of text | W: card right of text | N: card below text | S: card above text
   const layout =
@@ -397,22 +392,33 @@ function removeOneCard(hand: CardCode[], code: CardCode): CardCode[] {
   return next;
 }
 
+function rankStrength(code: CardCode): number {
+  const { rank } = parseCard(code);
+  const r = String(rank);
+
+  // Adjust these if your parseCard uses different symbols
+  if (r === "9") return 1;
+  if (r === "10" || r === "T") return 2;
+  if (r === "J") return 3;
+  if (r === "Q") return 4;
+  if (r === "K") return 5;
+  if (r === "A") return 6;
+
+  // fallback
+  const n = Number(r);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function trickStrength(code: CardCode, leadSuit: Suit, trump: Suit): number {
-  // Higher number = stronger
   if (isRightBower(code, trump)) return 200;
   if (isLeftBower(code, trump)) return 199;
 
   const eff = effectiveSuit(code, trump);
-  const { rank } = parseCard(code);
+  const r = rankStrength(code);
 
-  // Trump beats everything else
-  if (eff === trump) return 150 + rank;
-
-  // Following lead suit competes
-  if (eff === leadSuit) return 100 + rank;
-
-  // Off-suit loses
-  return 0 + rank;
+  if (eff === trump) return 150 + r;
+  if (eff === leadSuit) return 100 + r;
+  return 0 + r;
 }
 
 function winnerOfTrick(
