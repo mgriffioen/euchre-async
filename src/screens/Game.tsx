@@ -421,6 +421,27 @@ export default function Game() {
     return { mustFollow, playableSet: playable };
   }, [game, isMyTurn, mySeat, myHand]);
 
+    const renderSeat = (displayPos: Seat, gridColumn: string, gridRow: string) => {
+      const realSeat = displaySeats[displayPos];
+
+      return (
+        <div style={{ gridColumn, gridRow }}>
+          <SeatCard
+            seat={displayPos} // DISPLAY position for alignment rules
+            label={seatLabel(realSeat)} // label from REAL seat
+            isYou={mySeat === realSeat}
+            isTurn={game.turn === realSeat}
+            teamLabel={teamUi.labelForTeam[teamKeyForSeat(realSeat)]}
+            canClaim={!!uid && !game.seats[realSeat] && !mySeat}
+            playedCard={
+              game.phase === "playing" ? (game.currentTrick?.cards?.[realSeat] ?? null) : null
+            }
+            onClaim={() => claimSeat(realSeat)}
+          />
+        </div>
+      );
+    };
+
   /**
    * ==========================================================
    * Effects
@@ -982,56 +1003,6 @@ export default function Game() {
           <p>Loading…</p>
           ) : (
           <>
-          {/* Turn Banner */}
-          <div
-            style={{
-              padding: 12,
-              borderRadius: 12,
-              marginBottom: 12,
-              background: isMyTurn ? "#d1e7dd" : "#f8f9fa",
-              border: `1px solid ${isMyTurn ? "#badbcc" : "#ddd"}`,
-              fontWeight: 600,
-            }}
-          >
-            {game.phase?.startsWith("bidding") ? (
-              isMyTurn ? (
-                <>
-                🟢{" "}
-                {game.phase === "bidding_round_2" &&
-                (game.bidding?.passes?.length ?? 0) === 3 &&
-                mySeat === game.dealer
-                ? "Dealer must choose trump"
-                : "Your turn to bid"}
-                </>
-                ) : (
-                <>⏳ Waiting for {turnName} to bid…</>
-                )
-                ) : game.phase === "dealer_discard" ? (
-                mySeat === game.dealer ? (
-                  <>🟢 Dealer: pick up the upcard and discard</>
-                  ) : (
-                  <>⏳ Waiting for dealer ({displayDealer ?? game.dealer}) to discard…</>
-                  )
-                  ) : game.phase === "playing" ? (
-                  isMyTurn ? (
-                    <>🟢 Your turn</>
-                    ) : (
-                    <>⏳ Waiting for {turnName}…</>
-                    )
-                    ) : (
-                    <>Waiting…</>
-                    )}
-                  </div>
-
-          {/* Tricks tracker (Team A = NS, Team B = EW) */}
-                  {game.phase === "playing" && (
-                    <TrickMeter
-                      aLabel={teamUi.labelForTeam[teamUi.aTeam]}
-                      aCount={game.tricksTaken?.[teamUi.aTeam] ?? 0}
-                      bLabel={teamUi.labelForTeam[teamUi.bTeam]}
-                      bCount={game.tricksTaken?.[teamUi.bTeam] ?? 0}
-                      />
-                      )}
 {/* Public/shared game summary */}
                   <div style={cardStyle}>
                     <div>
@@ -1089,6 +1060,56 @@ export default function Game() {
                       </div>
                       )}
                   </div>
+          {/* Turn Banner */}
+          <div
+            style={{
+              padding: 12,
+              borderRadius: 12,
+              marginBottom: 12,
+              background: isMyTurn ? "#d1e7dd" : "#f8f9fa",
+              border: `1px solid ${isMyTurn ? "#badbcc" : "#ddd"}`,
+              fontWeight: 600,
+            }}
+          >
+            {game.phase?.startsWith("bidding") ? (
+              isMyTurn ? (
+                <>
+                🟢{" "}
+                {game.phase === "bidding_round_2" &&
+                (game.bidding?.passes?.length ?? 0) === 3 &&
+                mySeat === game.dealer
+                ? "Dealer must choose trump"
+                : "Your turn to bid"}
+                </>
+                ) : (
+                <>⏳ Waiting for {turnName} to bid…</>
+                )
+                ) : game.phase === "dealer_discard" ? (
+                mySeat === game.dealer ? (
+                  <>🟢 Dealer: pick up the upcard and discard</>
+                  ) : (
+                  <>⏳ Waiting for dealer ({displayDealer ?? game.dealer}) to discard…</>
+                  )
+                  ) : game.phase === "playing" ? (
+                  isMyTurn ? (
+                    <>🟢 Your turn</>
+                    ) : (
+                    <>⏳ Waiting for {turnName}…</>
+                    )
+                    ) : (
+                    <>Waiting…</>
+                    )}
+                  </div>
+
+          {/* Tricks tracker (Team A = NS, Team B = EW) */}
+                  {game.phase === "playing" && (
+                    <TrickMeter
+                      aLabel={teamUi.labelForTeam[teamUi.aTeam]}
+                      aCount={game.tricksTaken?.[teamUi.aTeam] ?? 0}
+                      bLabel={teamUi.labelForTeam[teamUi.bTeam]}
+                      bCount={game.tricksTaken?.[teamUi.bTeam] ?? 0}
+                      />
+                      )}
 
           {/* Bidding UI (Round 1) */}
                   {game.phase === "bidding_round_1" && (
@@ -1220,74 +1241,33 @@ export default function Game() {
                       </div>
                       )}
 
-          {/* Seats (also show played cards during Playing) */}
-                  <h4>Seats</h4>
+          {/* Seats */}
 
-                  <div style={tableStyle}>
-                    <div style={{ gridColumn: "2 / 3", gridRow: "1 / 2" }}>
-                      <SeatCard
-                        seat="N"
-                        label={seatLabel(displaySeats.N)}
-                        isYou={mySeat === displaySeats.N}
-                        isTurn={game.turn === displaySeats.N}
-                        teamLabel={teamUi.labelForTeam[teamKeyForSeat(displaySeats.N)]}
-                        canClaim={!!uid && !game.seats[displaySeats.N] && !mySeat}
-                        playedCard={game.phase === "playing" ? game.currentTrick?.cards?.[displaySeats.N] ?? null : null}
-                        onClaim={() => claimSeat(displaySeats.N)}
-                      />
-                    </div>
-
-                    <div style={{ gridColumn: "1 / 2", gridRow: "2 / 3" }}>
-                      <SeatCard
-                        seat="W"
-                        label={seatLabel(displaySeats.W)}
-                        isYou={mySeat === displaySeats.W}
-                        isTurn={game.turn === displaySeats.W}
-                        teamLabel={teamUi.labelForTeam[teamKeyForSeat(displaySeats.W)]}
-                        canClaim={!!uid && !game.seats[displaySeats.W] && !mySeat}
-                        playedCard={game.phase === "playing" ? game.currentTrick?.cards?.[displaySeats.W] ?? null : null}
-                        onClaim={() => claimSeat(displaySeats.W)}
-                      />
-                    </div>
-
-                    <div style={{ gridColumn: "3 / 4", gridRow: "2 / 3" }}>
-                      <SeatCard
-                        seat="E"
-                        label={seatLabel(displaySeats.E)}
-                        isYou={mySeat === displaySeats.E}
-                        isTurn={game.turn === displaySeats.E}
-                        teamLabel={teamUi.labelForTeam[teamKeyForSeat(displaySeats.E)]}
-                        canClaim={!!uid && !game.seats[displaySeats.E] && !mySeat}
-                        playedCard={game.phase === "playing" ? game.currentTrick?.cards?.[displaySeats.E] ?? null : null}
-                        onClaim={() => claimSeat(displaySeats.E)}
-                      />
-                    </div>
-
-                    <div style={{ gridColumn: "2 / 3", gridRow: "3 / 4" }}>
-                      <SeatCard
-                        seat="S"
-                        label={seatLabel(displaySeats.S)}
-                        isYou={mySeat === displaySeats.S}
-                        isTurn={game.turn === displaySeats.S}
-                        teamLabel={teamUi.labelForTeam[teamKeyForSeat(displaySeats.S)]}
-                        canClaim={!!uid && !game.seats[displaySeats.S] && !mySeat}
-                        playedCard={game.phase === "playing" ? game.currentTrick?.cards?.[displaySeats.S] ?? null : null}
-                        onClaim={() => claimSeat(displaySeats.S)}
-                      />
-                    </div>
-                  </div>
+                <div style={tableStyle}>
+                  {renderSeat("N", "2 / 3", "1 / 2")}
+                  {renderSeat("W", "1 / 2", "2 / 3")}
+                  {renderSeat("E", "3 / 4", "2 / 3")}
+                  {renderSeat("S", "2 / 3", "3 / 4")}
+                </div>
 
           {/* My private hand */}
                   <h4 style={{ marginTop: 24 }}>Your Hand</h4>
-                  <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
+                  <div
+  style={{
+    display: "flex",
+    gap: 10,
+    overflowX: "auto",
+    overflowY: "visible",   // 👈 key line
+    paddingTop: 10,         // 👈 gives room for the lift
+    paddingBottom: 8,
+  }}
+>
                     {displayHand.map((code, i) => {
                       const { rank, suit } = parseCard(code);
 
                       const isPlayingTurn = game?.phase === "playing" && isMyTurn;
                       const mustFollow = playableInfo.mustFollow;
                       const playableSet = playableInfo.playableSet;
-
-  // If playableSet is null, everything is playable (or we’re not in restricted mode)
                       const isPlayable =
                       !isPlayingTurn || !playableSet ? true : playableSet.has(code);
 
@@ -1462,6 +1442,7 @@ const cardStyle: React.CSSProperties = {
   border: "1px solid #ddd",
   borderRadius: 12,
   background: "white",
+  marginBottom: 12,
 };
 
 const btnStyle: React.CSSProperties = {
@@ -1486,4 +1467,5 @@ const tableStyle: React.CSSProperties = {
   gridTemplateRows: "auto auto auto",
   gap: 10,
   alignItems: "stretch",
+  justifyItems: "stretch",
 };
