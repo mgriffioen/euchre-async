@@ -8,6 +8,7 @@ import {
   serverTimestamp,
   setDoc,
   writeBatch,
+  updateDoc,
 } from "firebase/firestore";
 
 import { db } from "../firebase";
@@ -309,6 +310,10 @@ export default function Game() {
   const scoreNS = game?.score?.NS ?? 0;
   const scoreEW = game?.score?.EW ?? 0;
 
+  const winnerTeam = game?.winnerTeam ?? null; // "NS" | "EW" | null
+const winnerLabel =
+  winnerTeam === "NS" ? "Team A" : winnerTeam === "EW" ? "Team B" : null;
+
   const mySeat: Seat | null =
   uid && game
   ? ((Object.entries(game.seats).find(([, v]) => v === uid)?.[0] as Seat | undefined) ?? null)
@@ -439,11 +444,12 @@ export default function Game() {
     return (
       <div style={{ gridColumn, gridRow }}>
         <SeatCard
-            seat={displayPos} // DISPLAY position for alignment rules
-            label={seatLabel(realSeat)} // label from REAL seat
+            seat={displayPos}
+            label={seatLabel(realSeat)}
             isYou={mySeat === realSeat}
             isTurn={game.turn === realSeat}
             teamLabel={teamUi.labelForTeam[teamKeyForSeat(realSeat)]}
+            isDealer={game.dealer === realSeat}
             canClaim={!!uid && !game.seats[realSeat] && !mySeat}
             playedCard={
               game.phase === "playing" ? (game.currentTrick?.cards?.[realSeat] ?? null) : null
@@ -528,6 +534,59 @@ export default function Game() {
 
     return () => unsub();
   }, [gameId, uid]);
+
+  /**
+   * ----------------------------------------------------------
+   * Dev only
+   * ----------------------------------------------------------
+   */
+
+  async function devForceWin(team: TeamKey) {
+  if (!gameRef) return;
+
+  const score = team === "NS" ? { NS: 10, EW: 7 } : { NS: 7, EW: 10 };
+
+  try {
+    setErr(null);
+    await updateDoc(gameRef, {
+      updatedAt: serverTimestamp(),
+      score,
+      status: "finished",
+      phase: "lobby",
+      winnerTeam: team,
+
+      // Optional: clear per-hand state so it looks clean
+      currentTrick: null,
+      upcard: null,
+      kitty: null,
+      trump: null,
+      makerSeat: null,
+      bidding: null,
+    });
+  } catch (e: any) {
+    console.error("devForceWin failed:", e);
+    setErr(e?.message ?? String(e));
+  }
+}
+
+async function devResetGame() {
+  if (!gameRef) return;
+  await updateDoc(gameRef, {
+    updatedAt: serverTimestamp(),
+    status: "lobby",
+    phase: "lobby",
+    winnerTeam: null,
+    score: { NS: 0, EW: 0 },
+    currentTrick: null,
+    tricksTaken: { NS: 0, EW: 0 },
+    trickWinners: [],
+    upcard: null,
+    kitty: null,
+    trump: null,
+    makerSeat: null,
+    bidding: null,
+  });
+}
 
   /**
    * ==========================================================
@@ -659,6 +718,7 @@ export default function Game() {
   }
 
   async function bidPassRound1() {
+    if (isGameFinished) return;
     if (!gameRef || !game || !mySeat) return;
     if (game.phase !== "bidding_round_1") return;
     if (game.turn !== mySeat) return;
@@ -693,6 +753,7 @@ export default function Game() {
   }
 
   async function bidOrderUp() {
+    if (isGameFinished) return;
     if (!gameRef || !game || !mySeat) return;
     if (game.phase !== "bidding_round_1") return;
     if (game.turn !== mySeat) return;
@@ -726,6 +787,7 @@ export default function Game() {
   }
 
   async function bidPassRound2() {
+    if (isGameFinished) return;
     if (!gameRef || !game || !mySeat) return;
     if (game.phase !== "bidding_round_2") return;
     if (game.turn !== mySeat) return;
@@ -766,6 +828,7 @@ export default function Game() {
   }
 
   async function bidCallTrump(suit: Suit) {
+    if (isGameFinished) return;
     if (!gameRef || !game || !mySeat) return;
     if (game.phase !== "bidding_round_2") return;
     if (game.turn !== mySeat) return;
@@ -806,6 +869,7 @@ export default function Game() {
   }
 
   async function dealerPickupAndDiscard(discard: CardCode) {
+    if (isGameFinished) return;
     if (!gameRef || !gameId || !game || !uid || !mySeat) return;
 
     if (game.phase !== "dealer_discard") return;
@@ -1051,12 +1115,42 @@ return (
         Start Hand (Deal)
       </button>
 
+      {/* Dev tools */}
+      {/* 
+      {import.meta.env.DEV ? (
+  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, marginBottom: 8 }}>
+    <button
+      style={btnStyle}
+      onClick={() => devForceWin("NS")}
+      title="Dev: set Team A to winning state"
+    >
+      DEV: Team A Wins
+    </button>
+    <button
+      style={btnStyle}
+      onClick={() => devForceWin("EW")}
+      title="Dev: set Team B to winning state"
+    >
+      DEV: Team B Wins
+    </button>
+    <button
+      style={btnStyle}
+      onClick={() => devResetGame()}
+      title="Dev: Reset game"
+    >
+      DEV: Reset game
+    </button>
+  </div>
+) : null}
+  */}
+
       {!game ? (
         <p>Loading…</p>
         ) : (
         <>
 {/* Public/shared game summary */}
         <div style={cardStyle}>
+          {/* 
           <div>
             <b>Status:</b> {game.status}
           </div>
@@ -1078,6 +1172,7 @@ return (
               <b>Your Team:</b> {teamUi.labelForTeam[teamUi.myTeam]}
             </div>
             )}
+            */}
 
           {game.upcard && game.phase !== "playing" && (
             <div style={{ marginTop: 10 }}>
@@ -1101,11 +1196,6 @@ return (
           {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
             <div style={{ marginTop: 10 }}>
               <b>Trump:</b> {suitSymbol(game.trump)}
-              {game.makerSeat && (
-                <span style={{ marginLeft: 8, color: "#555" }}>
-                  (maker: {displayMakerSeat ?? game.makerSeat})
-                </span>
-                )}
             </div>
             )}
         </div>
@@ -1149,7 +1239,29 @@ return (
                   <>Waiting…</>
                   )}
                 </div>
-
+{game?.status === "finished" && winnerLabel ? (
+  <div
+    style={{
+      marginTop: 10,
+      marginBottom: 12,
+      padding: "12px 14px",
+      borderRadius: 12,
+      border: "2px solid #111",
+      background: "#fff",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+      flexWrap: "wrap",
+    }}
+  >
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 0.2 }}>
+        🏆 {winnerLabel} wins!
+      </div>
+    </div>
+  </div>
+) : null}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, marginBottom: 12 }}>
 
                   <span
@@ -1392,6 +1504,7 @@ function SeatCard(props: {
   isYou: boolean;
   isTurn: boolean;
   teamLabel?: string;
+  isDealer: boolean;
   canClaim: boolean;
   playedCard?: CardCode | null;
   onClaim: () => void;
@@ -1485,6 +1598,25 @@ function SeatCard(props: {
               </span>
             </div>
             ) : null}
+          {props.isDealer ? (
+  <span
+    style={{
+      fontSize: 12,
+      padding: "3px 8px",
+      marginTop: "3px",
+      borderRadius: 8,
+      border: "1px solid #d9d9d9",
+      display: "inline-block",
+      whiteSpace: "nowrap",
+      lineHeight: 1.2,
+      background: "rgba(0,0,0,0.06)",
+      color: "#333",
+      fontWeight: 700,
+    }}
+  >
+    Dealer
+  </span>
+) : null}
         </div>
       </div>
 
