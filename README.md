@@ -153,7 +153,7 @@ Played card alignment:
 
 ---
 
-## 📂 Important File
+## Important File
 
 ### `src/screens/Game.tsx`
 
