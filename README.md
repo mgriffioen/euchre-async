@@ -199,5 +199,3 @@ Responsibilities include:
   * BiddingPanel
   * TurnBanner
 * Preserve existing Firestore schema
-
----
