@@ -351,14 +351,15 @@ const winnerLabel =
   ? ((Object.entries(game.seats).find(([, v]) => v === uid)?.[0] as Seat | undefined) ?? null)
   : null;
 
-    const canDeal =
-    !!game &&
-    !isGameFinished &&
-    game.status === "lobby" &&
-    (game.phase === "lobby" || !game.phase) &&
-    hasName &&
-    !!mySeat &&
-    mySeat === (game.dealer ?? "N");
+  const isGameFinished = game?.status === "finished";
+  const canDeal =
+  !!game &&
+  !isGameFinished &&
+  game.status === "lobby" &&
+  (game.phase === "lobby" || !game.phase) &&
+  hasName &&
+  !!mySeat &&
+  mySeat === (game.dealer ?? "N");
 
   const isMyTurn = !!uid && !!game && !!mySeat && game.turn === mySeat;
 
@@ -405,7 +406,6 @@ const winnerLabel =
     return myHand;
   }, [game?.phase, game?.dealer, game?.upcard, mySeat, myHand]);
 
-  const isGameFinished = game?.status === "finished";
 
   /**
    * ----------------------------------------------------------
