@@ -593,7 +593,11 @@ const isFull = seatsTaken.length === SEATS.length;
 
   async function claimSeat(seat: Seat) {
     if (!gameRef || !uid || !gameId) return;
-    if (!hasName) {
+    if (isFull) {
+  setJoinError("This game is full — all seats are already claimed.");
+  return;
+}
+if (!hasName) {
       setErr("Please enter a name before joining.");
       return;
     }
@@ -1204,10 +1208,6 @@ return (
         <p>Loading…</p>
         ) : (
         <>
-        if (isFull) {
-  setJoinError("This game is full — all seats are already claimed.");
-  return;
-}
           {/* Turn Banner */}
         <div
           style={{
