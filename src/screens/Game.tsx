@@ -1152,13 +1152,13 @@ return (
           <input readOnly value={url} style={shareStyle} />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-  <a href={shareUrl} target="_blank" rel="noreferrer">
-    {shareUrl}
+  <a href={url} target="_blank" rel="noreferrer">
+    {url}
   </a>
 
   <button
     type="button"
-    onClick={() => copyShareLink(shareUrl)}
+    onClick={() => copyShareLink(url)}
     style={{
       padding: "6px 10px",
       borderRadius: 8,
