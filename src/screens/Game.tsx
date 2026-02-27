@@ -364,6 +364,26 @@ export default function Game() {
 
   const isMyTurn = !!uid && !!game && !!mySeat && game.turn === mySeat;
 
+  const prevIsMyTurn = useRef(false);
+
+    useEffect(() => {
+      if (!isMyTurn || prevIsMyTurn.current) {
+        prevIsMyTurn.current = isMyTurn;
+        return;
+      }
+
+      prevIsMyTurn.current = true;
+
+      const audio = new Audio("/sounds/turn.mp3");
+      audio.volume = 0.7;
+      audio.play().catch(() => {
+      });
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("Euchre", { body: "It’s your turn!" });
+      }
+    }, [isMyTurn]);
+
   const teamUi = useMemo(() => {
     // Internally we track NS vs EW (real seats). Keep Team A/B consistent for ALL players:
     //   Team A = NS (North/South)
@@ -587,6 +607,13 @@ export default function Game() {
    * Actions
    * ==========================================================
    */
+
+  async function enableNotifications() {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "default") {
+    await Notification.requestPermission();
+  }
+}
 
   async function claimSeat(seat: Seat) {
     if (!gameRef || !uid || !gameId) return;
