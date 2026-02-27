@@ -342,10 +342,8 @@ export default function Game() {
   const scoreNS = game?.score?.NS ?? 0;
   const scoreEW = game?.score?.EW ?? 0;
 
-  const isFull = !!game?.seats && SEATS.every((s) => Boolean(game.seats[s]));
-
   const winnerTeam = game?.winnerTeam ?? null; // "NS" | "EW" | null
-const winnerLabel =
+  const winnerLabel =
   winnerTeam === "NS" ? "Team A" : winnerTeam === "EW" ? "Team B" : null;
 
   const mySeat: Seat | null =
@@ -354,6 +352,9 @@ const winnerLabel =
   : null;
 
   const isGameFinished = game?.status === "finished";
+
+  const isFull =
+    !!game?.seats && SEATS.every((s) => Boolean(game.seats[s]));
   const canDeal =
   !!game &&
   !isGameFinished &&
