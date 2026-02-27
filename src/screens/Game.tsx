@@ -1157,8 +1157,8 @@ return (
                 style={{
                   padding: "6px 10px",
                   borderRadius: 8,
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid #2A7A29",
+                  background: "#A8E2A7",
                   cursor: "pointer",
                 }}
               >
