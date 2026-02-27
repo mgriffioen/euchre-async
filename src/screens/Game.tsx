@@ -504,7 +504,8 @@ export default function Game() {
   };
 
     const SEATS = ["N", "E", "S", "W"] as const;
-    const isFull = !!game?.seats && SEATS.every((s) => Boolean(game.seats[s]));
+    const isFull =
+      !!game?.seats && SEATS.every((s) => Boolean(game.seats[s]));
 
   /**
    * ==========================================================
