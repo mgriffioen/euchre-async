@@ -294,7 +294,6 @@ export default function Game() {
    * ----------------------------------------------------------
    */
   const [err, setErr] = useState<string | null>(null);
-  const [joinError, setJoinError] = useState<string | null>(null);
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
 
   // ----------------------------------------------------------
@@ -342,8 +341,9 @@ export default function Game() {
   const scoreNS = game?.score?.NS ?? 0;
   const scoreEW = game?.score?.EW ?? 0;
 
+
   const winnerTeam = game?.winnerTeam ?? null; // "NS" | "EW" | null
-  const winnerLabel =
+const winnerLabel =
   winnerTeam === "NS" ? "Team A" : winnerTeam === "EW" ? "Team B" : null;
 
   const mySeat: Seat | null =
@@ -352,7 +352,6 @@ export default function Game() {
   : null;
 
   const isGameFinished = game?.status === "finished";
-
   const canDeal =
   !!game &&
   !isGameFinished &&
@@ -428,7 +427,7 @@ export default function Game() {
     if (!mySeat) return { N: "N", E: "E", S: "S", W: "W" };
 
     const m: Record<Seat, Seat> = { N: "N", E: "E", S: "S", W: "W" };
-    SEATS.forEach((real) => {
+    (SEATS as Seat[]).forEach((real) => {
       const disp = realToDisplaySeat(real, mySeat);
       m[disp] = real;
     });
@@ -458,7 +457,6 @@ export default function Game() {
     const cards = trick?.cards ?? {};
     const trickStarted = Object.keys(cards).length > 0;
     const leadSuit = trickStarted ? (trick?.leadSuit ?? null) : null;
-
 
   // If you’re leading (no lead suit yet), you can play anything.
     if (!leadSuit) {
@@ -502,10 +500,6 @@ export default function Game() {
         </div>
         );
   };
-
-    const SEATS = ["N", "E", "S", "W"] as const;
-    const isFull =
-      !!game?.seats && SEATS.every((s) => Boolean(game.seats[s]));
 
   /**
    * ==========================================================
@@ -595,22 +589,12 @@ export default function Game() {
       return;
     }
 
-    setJoinError(null);
-
-    if (isFull) {
-      setJoinError("This game is full — all seats are already claimed.");
-      return;
-    }
-
     try {
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(gameRef);
         if (!snap.exists()) throw new Error("Game missing");
 
         const data = snap.data() as GameDoc;
-
-        const full = (['N','E','S','W'] as const).every((s) => Boolean(data.seats[s]));
-        if (full) throw new Error('FULL');
 
         if (data.seats[seat]) throw new Error("Seat already taken");
         if (Object.values(data.seats).includes(uid)) throw new Error("You already claimed a seat");
@@ -632,10 +616,6 @@ export default function Game() {
         { merge: true }
         );
     } catch (e: any) {
-      if (e?.message === "FULL") {
-        setJoinError("This game is full — all seats are already claimed.");
-        return;
-      }
       setErr(e?.message ?? String(e));
     }
   }
@@ -666,7 +646,7 @@ async function copyShareLink(text: string) {
 
     setErr(null);
 
-    const allFilled = SEATS.every((seat) => !!game.seats[seat]);
+    const allFilled = (SEATS as Seat[]).every((seat) => !!game.seats[seat]);
     if (!allFilled) {
       setErr("Need all 4 seats filled to start a hand.");
       return;
@@ -729,7 +709,7 @@ async function copyShareLink(text: string) {
       handNumber: (game.handNumber ?? 0) + 1,
     });
 
-    for (const seat of SEATS) {
+    for (const seat of SEATS as Seat[]) {
       const seatUid = game.seats[seat]!;
       const playerRef = doc(db, "games", gameId, "players", seatUid);
 
@@ -1187,28 +1167,6 @@ return (
             </div>
         </div>
       </div>
-
-      {isFull && (
-  <div
-    style={{
-      padding: "10px 12px",
-      borderRadius: 10,
-      border: "1px solid rgba(255,255,255,0.15)",
-      background: "rgba(255,255,255,0.06)",
-      marginTop: 10,
-      fontSize: 16,
-      fontWeight: 600,
-    }}
-  >
-    This game is full. You have joined as a spectator. 
-  </div>
-)}
-
-{joinError && (
-  <div style={{ marginTop: 8, color: "#ffb3b3", fontSize: 14, fontWeight: 600 }}>
-    {joinError}
-  </div>
-)}
 
       {!game ? (
         <p>Loading…</p>
@@ -1678,16 +1636,11 @@ function SeatCard(props: {
         </div>
       </div>
 
-      
-        <div>
-          {canClaim ? (
-            <button onClick={onClaim} style={{ ...btnStyle, marginTop: 10, width: "100%" }}>
-              Claim
-            </button>
-            ) : null}
-        </div>
-      
-
+      {canClaim ? (
+        <button onClick={onClaim} style={{ ...btnStyle, marginTop: 10, width: "100%" }}>
+          Claim
+        </button>
+        ) : null}
     </div>
     );
     }
