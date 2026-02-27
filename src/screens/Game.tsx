@@ -351,13 +351,14 @@ const winnerLabel =
   ? ((Object.entries(game.seats).find(([, v]) => v === uid)?.[0] as Seat | undefined) ?? null)
   : null;
 
-  const canDeal =
+    const canDeal =
     !!game &&
+    !isGameFinished &&
+    game.status === "lobby" &&
     (game.phase === "lobby" || !game.phase) &&
     hasName &&
     !!mySeat &&
-    mySeat === game.dealer;
-
+    mySeat === (game.dealer ?? "N");
 
   const isMyTurn = !!uid && !!game && !!mySeat && game.turn === mySeat;
 
@@ -640,7 +641,7 @@ const winnerLabel =
       return;
     }
 
-    const dealer: Seat = game.dealer ? nextSeat(game.dealer) : "N";
+        const dealer: Seat = (game.dealer ?? "N") as Seat;
     const firstToAct: Seat = nextSeat(dealer);
 
     const deck = shuffle(createEuchreDeck());
@@ -1015,25 +1016,30 @@ const winnerLabel =
 
             const winner = winningTeam(nextScore, 10);
 
+            const nextDealer: Seat = nextSeat(g.dealer);
             tx.update(gameRef, {
               updatedAt: serverTimestamp(),
               tricksTaken: nextTaken,
               trickWinners: nextWinners,
               score: nextScore,
 
-  // ✅ win condition
+              // ✅ win condition
               status: winner ? "finished" : "lobby",
-  winnerTeam: winner, // NEW FIELD (additive)
+              winnerTeam: winner, // additive
 
-  // reset per-hand state (keep your current behavior)
-  phase: "lobby",
-  currentTrick: null,
-  upcard: null,
-  kitty: null,
-  trump: null,
-  makerSeat: null,
-  bidding: null,
-});
+              // advance dealer for the NEXT hand (deal button belongs to this seat)
+              dealer: nextDealer,
+              turn: nextDealer,
+
+              // reset per-hand state
+              phase: "lobby",
+              currentTrick: null,
+              upcard: null,
+              kitty: null,
+              trump: null,
+              makerSeat: null,
+              bidding: null,
+            });
             return;
           }
 
