@@ -90,9 +90,31 @@ function teamKeyForSeat(seat: Seat): TeamKey {
   return seat === "N" || seat === "S" ? "NS" : "EW";
 }
 
-function otherTeam(team: TeamKey): TeamKey {
-  return team === "NS" ? "EW" : "NS";
+
+function rankToNumber(rank: string | number): number {
+  // parseCard(rank) returns a string in this project ("9","10","J","Q","K","A" or "T")
+  const r = String(rank);
+  switch (r) {
+    case "9":
+      return 1;
+    case "10":
+    case "T":
+      return 2;
+    case "J":
+      return 3;
+    case "Q":
+      return 4;
+    case "K":
+      return 5;
+    case "A":
+      return 6;
+    default: {
+      const n = Number(r);
+      return Number.isFinite(n) ? n : 0;
+    }
+  }
 }
+
 
 function TrickMeter(props: {
   aLabel: string;
@@ -223,15 +245,16 @@ function trickStrength(code: CardCode, leadSuit: Suit, trump: Suit): number {
 
   const eff = effectiveSuit(code, trump);
   const { rank } = parseCard(code);
+  const r = rankToNumber(rank);
 
   // Trump beats everything else
-  if (eff === trump) return 150 + rank;
+  if (eff === trump) return 150 + r;
 
   // Following lead suit competes
-  if (eff === leadSuit) return 100 + rank;
+  if (eff === leadSuit) return 100 + r;
 
   // Off-suit loses
-  return 0 + rank;
+  return 0 + r;
 }
 
 function winnerOfTrick(
@@ -303,11 +326,6 @@ export default function Game() {
   uid && game
   ? ((Object.entries(game.seats).find(([, v]) => v === uid)?.[0] as Seat | undefined) ?? null)
   : null;
-
-  const hasName = (localStorage.getItem("playerName") ?? "").trim().length > 0;
-  const dealerToDeal: Seat = (game?.dealer ?? "N");
-  const canDeal = !!game && game.phase === "lobby" && !!mySeat && mySeat === dealerToDeal && hasName;
-
 
   const isMyTurn = !!uid && !!game && !!mySeat && game.turn === mySeat;
 
@@ -550,7 +568,7 @@ export default function Game() {
       return;
     }
 
-    const dealer: Seat = (game.dealer ?? "N");
+    const dealer: Seat = game.dealer ? nextSeat(game.dealer) : "N";
     const firstToAct: Seat = nextSeat(dealer);
 
     const deck = shuffle(createEuchreDeck());
@@ -905,10 +923,6 @@ export default function Game() {
               status: "lobby",
               phase: "lobby",
 
-              // advance dealer for next hand
-              dealer: nextSeat(g.dealer ?? "N"),
-              turn: nextSeat(nextSeat(g.dealer ?? "N")),
-
               upcard: null,
               kitty: null,
               trump: null,
@@ -976,7 +990,16 @@ export default function Game() {
             <b>Share link:</b>
             <input readOnly value={url} style={shareStyle} />
           </div>
-        </div> 
+        </div>
+
+      {/* Host-only for now: N starts the hand */}
+        <button
+          onClick={startHand}
+          disabled={!game || mySeat !== "N"}
+          style={{ ...btnStyle, width: "100%", marginBottom: 12 }}
+        >
+          Start Hand (Deal)
+        </button>
 
         {!game ? (
           <p>Loading…</p>
@@ -1277,15 +1300,6 @@ export default function Game() {
                     </div>
                   </div>
 
-          {canDeal ? (
-                    <button
-                      onClick={startHand}
-                      style={{ ...btnStyle, width: "100%", marginTop: 16, marginBottom: 8 }}
-                    >
-                      Deal
-                    </button>
-                  ) : null}
-
           {/* My private hand */}
                   <h4 style={{ marginTop: 24 }}>Your Hand</h4>
                   <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
@@ -1351,7 +1365,7 @@ function SeatCard(props: {
   playedCard?: CardCode | null;
   onClaim: () => void;
 }) {
-  const { seat, label, isYou, isTurn, teamLabel, canClaim, playedCard, onClaim } = props;
+  const { seat, label, isTurn, teamLabel, canClaim, playedCard, onClaim } = props;
 
   // E: card left of text | W: card right of text | N: card below text | S: card above text
   const layout =
