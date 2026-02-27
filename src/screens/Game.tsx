@@ -296,19 +296,22 @@ export default function Game() {
   const [err, setErr] = useState<string | null>(null);
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
 
-  // Player name gate (required before joining/claiming a seat)
-  // Stored in localStorage so share-link opens still require a name once per device/browser.
-  const [playerName, setPlayerName] = useState<string>(() => {
-    return (localStorage.getItem("playerName") || "").trim();
-  });
+  // ----------------------------------------------------------
+  // Player Name Gate (required before joining via share link)
+  // ----------------------------------------------------------
+  // `savedName` is what we consider "confirmed" (stored in localStorage).
+  // `nameDraft` is what the user is currently typing in the input.
+  const [savedName, setSavedName] = useState<string>(() => (localStorage.getItem("playerName") || "").trim());
+  const [nameDraft, setNameDraft] = useState<string>(() => (localStorage.getItem("playerName") || "").trim());
 
-  const hasName = playerName.trim().length > 0;
+  const hasName = savedName.trim().length > 0;
 
   function saveName() {
-    const trimmed = playerName.trim();
+    const trimmed = nameDraft.trim();
     if (!trimmed) return;
     localStorage.setItem("playerName", trimmed);
-    setPlayerName(trimmed);
+    setSavedName(trimmed);
+    setNameDraft(trimmed);
     setErr(null);
   }
 
@@ -338,21 +341,23 @@ export default function Game() {
   const scoreNS = game?.score?.NS ?? 0;
   const scoreEW = game?.score?.EW ?? 0;
 
+
+  const winnerTeam = game?.winnerTeam ?? null; // "NS" | "EW" | null
+const winnerLabel =
+  winnerTeam === "NS" ? "Team A" : winnerTeam === "EW" ? "Team B" : null;
+
   const mySeat: Seat | null =
   uid && game
   ? ((Object.entries(game.seats).find(([, v]) => v === uid)?.[0] as Seat | undefined) ?? null)
   : null;
 
   const canDeal =
-  !!game &&
-  (game.phase === "lobby" || !game.phase) &&
-  !!mySeat &&
-  mySeat === game.dealer &&
-  hasName;
+    !!game &&
+    (game.phase === "lobby" || !game.phase) &&
+    hasName &&
+    !!mySeat &&
+    mySeat === game.dealer;
 
-  const winnerTeam = game?.winnerTeam ?? null; // "NS" | "EW" | null
-const winnerLabel =
-  winnerTeam === "NS" ? "Team A" : winnerTeam === "EW" ? "Team B" : null;
 
   const isMyTurn = !!uid && !!game && !!mySeat && game.turn === mySeat;
 
@@ -485,7 +490,7 @@ const winnerLabel =
             isTurn={game.turn === realSeat}
             teamLabel={teamUi.labelForTeam[teamKeyForSeat(realSeat)]}
             isDealer={game.dealer === realSeat}
-            canClaim={hasName && !!uid && !game.seats[realSeat] && !mySeat}
+            canClaim={!!uid && !game.seats[realSeat] && !mySeat}
             playedCard={
               game.phase === "playing" ? (game.currentTrick?.cards?.[realSeat] ?? null) : null
             }
@@ -578,7 +583,6 @@ const winnerLabel =
 
   async function claimSeat(seat: Seat) {
     if (!gameRef || !uid || !gameId) return;
-
     if (!hasName) {
       setErr("Please enter a name before joining.");
       return;
@@ -604,7 +608,7 @@ const winnerLabel =
         doc(db, "games", gameId, "players", uid),
         {
           uid,
-          name: playerName || localStorage.getItem("playerName") || "Player",
+          name: savedName || localStorage.getItem("playerName") || "Player",
           seat,
           joinedAt: serverTimestamp(),
         },
@@ -1083,43 +1087,36 @@ return (
 
     {err && <div style={alertStyle}>{err}</div>}
 
+      {!hasName ? (
+        <div style={cardStyle}>
+          <h4 style={{ marginTop: 0 }}>Enter your name</h4>
+          <div style={{ color: "#555", marginBottom: 10 }}>
+            You’ll need a name before you can join or take actions in this game.
+          </div>
 
-    {!hasName ? (
-      <div style={{ ...cardStyle, marginBottom: 12 }}>
-        <h4 style={{ marginTop: 0 }}>Enter your name</h4>
-        <div style={{ color: "#555", marginBottom: 10 }}>
-          You’ll need a name before joining this game.
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              placeholder="Your name"
+              style={{
+                flex: 1,
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #ccc",
+                fontSize: 16, // prevents iOS zoom-on-focus
+              }}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveName();
+              }}
+            />
+            <button style={btnStyle} onClick={saveName} disabled={!nameDraft.trim()}>
+              Continue
+            </button>
+          </div>
         </div>
-
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            placeholder="Your name"
-            style={{
-              flex: 1,
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid #ccc",
-              fontSize: 16, // prevents iOS zoom on focus
-            }}
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter") saveName();
-            }}
-          />
-          <button
-            style={btnStyle}
-            onClick={saveName}
-            disabled={!playerName.trim()}
-          >
-            Continue
-          </button>
-        </div>
-      </div>
-    ) : null}
-
-
+      ) : null}
       <div style={{ marginBottom: 12 }}>
         <div>
           <b>Game ID:</b> {gameId}
