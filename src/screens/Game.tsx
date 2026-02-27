@@ -1225,7 +1225,7 @@ return (
                   </span>
                 </div>
                 
-        <div style={cardStyle}>
+        <div>
           {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
             <div>
               <b>Trump:</b> {suitSymbol(game.trump)}
@@ -1254,7 +1254,7 @@ return (
 
           {/* Upcard */}
 
-        <div style={cardStyle}>
+        <div>
           {game.upcard && game.phase !== "playing" && (
             <div style={{ marginTop: 10 }}>
               <div style={{ marginBottom: 10 }}>
