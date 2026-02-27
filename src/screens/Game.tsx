@@ -1235,6 +1235,11 @@ return (
                     />
                     )}
 
+          {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
+            <div>
+              <b>Trump:</b> {suitSymbol(game.trump)}
+            </div>
+
           {/* Seats */}
 
                 <div style={tableStyle}>
@@ -1267,11 +1272,6 @@ return (
               })()}
             </div>
             )}
-
-          {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
-            <div>
-              <b>Trump:</b> {suitSymbol(game.trump)}
-            </div>
             )}
         </div>
 
