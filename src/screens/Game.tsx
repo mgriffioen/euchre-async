@@ -1110,9 +1110,6 @@ setSelectedCard(null);
    */
 return (
   <div>
-
-    {err && <div style={alertStyle}>{err}</div>}
-
       {!hasName ? (
         <div style={cardStyle}>
           <h4 style={{ marginTop: 0 }}>Enter your name</h4>
@@ -1215,29 +1212,32 @@ return (
                   <>Waiting…</>
                   )}
                 </div>
-{game?.status === "finished" && winnerLabel ? (
-  <div
-    style={{
-      marginTop: 10,
-      marginBottom: 12,
-      padding: "12px 14px",
-      borderRadius: 12,
-      border: "2px solid #111",
-      background: "#fff",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: 12,
-      flexWrap: "wrap",
-    }}
-  >
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 0.2 }}>
-        🏆 {winnerLabel} wins!
-      </div>
-    </div>
-  </div>
-) : null}
+
+                {err && <div style={alertStyle}>{err}</div>}
+
+                {game?.status === "finished" && winnerLabel ? (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      marginBottom: 12,
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: "2px solid #111",
+                      background: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 0.2 }}>
+                        🏆 {winnerLabel} wins!
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, marginBottom: 12 }}>
 
                   <span
