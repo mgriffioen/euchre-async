@@ -338,6 +338,11 @@ export default function Game() {
   const scoreNS = game?.score?.NS ?? 0;
   const scoreEW = game?.score?.EW ?? 0;
 
+  const mySeat: Seat | null =
+  uid && game
+  ? ((Object.entries(game.seats).find(([, v]) => v === uid)?.[0] as Seat | undefined) ?? null)
+  : null;
+
   const canDeal =
   !!game &&
   (game.phase === "lobby" || !game.phase) &&
@@ -348,11 +353,6 @@ export default function Game() {
   const winnerTeam = game?.winnerTeam ?? null; // "NS" | "EW" | null
 const winnerLabel =
   winnerTeam === "NS" ? "Team A" : winnerTeam === "EW" ? "Team B" : null;
-
-  const mySeat: Seat | null =
-  uid && game
-  ? ((Object.entries(game.seats).find(([, v]) => v === uid)?.[0] as Seat | undefined) ?? null)
-  : null;
 
   const isMyTurn = !!uid && !!game && !!mySeat && game.turn === mySeat;
 
