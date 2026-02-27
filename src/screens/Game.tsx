@@ -1453,7 +1453,7 @@ return (
         ) : null}
 
           {/* My private hand */}
-                <h4 style={{ marginTop: 24 }}>Your Hand</h4>
+                <h4 style={{ marginTop: 6 }}>Your Hand</h4>
                 <div
                   style={{
                     display: "flex",
