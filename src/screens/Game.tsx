@@ -1204,6 +1204,10 @@ return (
         <p>Loading…</p>
         ) : (
         <>
+        if (isFull) {
+  setJoinError("This game is full — all seats are already claimed.");
+  return;
+}
           {/* Turn Banner */}
         <div
           style={{
@@ -1668,11 +1672,16 @@ function SeatCard(props: {
         </div>
       </div>
 
-      {canClaim ? (
-        <button onClick={onClaim} style={{ ...btnStyle, marginTop: 10, width: "100%" }}>
-          Claim
-        </button>
-        ) : null}
+      {!isFull && (
+        <div>
+          {canClaim ? (
+            <button onClick={onClaim} style={{ ...btnStyle, marginTop: 10, width: "100%" }}>
+              Claim
+            </button>
+            ) : null}
+        </div>
+      )}
+
     </div>
     );
     }
