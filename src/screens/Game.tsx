@@ -501,6 +501,15 @@ const winnerLabel =
         );
   };
 
+  const SEATS = ["N", "E", "S", "W"] as const;
+
+const seatsTaken =
+  game?.players
+    ? SEATS.filter((s) => Boolean((game.players as any)[s]))
+    : [];
+
+const isFull = seatsTaken.length === SEATS.length;
+
   /**
    * ==========================================================
    * Effects
@@ -1167,6 +1176,29 @@ return (
             </div>
         </div>
       </div>
+
+      {isFull && (
+  <div
+    style={{
+      padding: "10px 12px",
+      borderRadius: 10,
+      border: "1px solid rgba(255,255,255,0.15)",
+      background: "rgba(255,255,255,0.06)",
+      marginTop: 10,
+      fontSize: 14,
+      fontWeight: 600,
+    }}
+  >
+    This game is full (all 4 seats are claimed). You can start a new game, or
+    ask someone to leave a seat.
+  </div>
+)}
+
+{joinError && (
+  <div style={{ marginTop: 8, color: "#ffb3b3", fontSize: 14, fontWeight: 600 }}>
+    {joinError}
+  </div>
+)}
 
       {!game ? (
         <p>Loading…</p>
