@@ -1133,48 +1133,10 @@ return (
         </div>
       </div>
 
-      {canDeal ? (
-          <button
-            onClick={startHand}
-            style={{ ...btnStyle, width: "100%", marginBottom: 12 }}
-          >
-            Deal
-          </button>
-        ) : null}
-
       {!game ? (
         <p>Loading…</p>
         ) : (
         <>
-{/* Public/shared game summary */}
-        <div style={cardStyle}>
-
-
-          {game.upcard && game.phase !== "playing" && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ marginBottom: 10 }}>
-                <b>Upcard:</b>
-              </div>
-              {(() => {
-                const { rank, suit } = parseCard(game.upcard as CardCode);
-                return (
-                  <Card
-                    rank={rankLabel(rank)}
-                    suit={suitSymbol(suit)}
-                    selected={false}
-                    onClick={() => {}}
-                    />
-                    );
-              })()}
-            </div>
-            )}
-
-          {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
-            <div>
-              <b>Trump:</b> {suitSymbol(game.trump)}
-            </div>
-            )}
-        </div>
           {/* Turn Banner */}
         <div
           style={{
@@ -1272,6 +1234,46 @@ return (
                     bCount={game.tricksTaken?.[teamUi.bTeam] ?? 0}
                     />
                     )}
+
+          {/* Seats */}
+
+                <div style={tableStyle}>
+                  {renderSeat("N", "2 / 3", "1 / 2")}
+                  {renderSeat("W", "1 / 2", "2 / 3")}
+                  {renderSeat("E", "3 / 4", "2 / 3")}
+                  {renderSeat("S", "2 / 3", "3 / 4")}
+                </div>
+
+          {/* Upcard */}
+                
+        <div style={cardStyle}>
+
+
+          {game.upcard && game.phase !== "playing" && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ marginBottom: 10 }}>
+                <b>Upcard:</b>
+              </div>
+              {(() => {
+                const { rank, suit } = parseCard(game.upcard as CardCode);
+                return (
+                  <Card
+                    rank={rankLabel(rank)}
+                    suit={suitSymbol(suit)}
+                    selected={false}
+                    onClick={() => {}}
+                    />
+                    );
+              })()}
+            </div>
+            )}
+
+          {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
+            <div>
+              <b>Trump:</b> {suitSymbol(game.trump)}
+            </div>
+            )}
+        </div>
 
           {/* Bidding UI (Round 1) */}
                 {game.phase === "bidding_round_1" && (
@@ -1403,14 +1405,14 @@ return (
                     </div>
                     )}
 
-          {/* Seats */}
-
-                <div style={tableStyle}>
-                  {renderSeat("N", "2 / 3", "1 / 2")}
-                  {renderSeat("W", "1 / 2", "2 / 3")}
-                  {renderSeat("E", "3 / 4", "2 / 3")}
-                  {renderSeat("S", "2 / 3", "3 / 4")}
-                </div>
+      {canDeal ? (
+          <button
+            onClick={startHand}
+            style={{ ...btnStyle, width: "100%", marginBottom: 12 }}
+          >
+            Deal
+          </button>
+        ) : null}
 
           {/* My private hand */}
                 <h4 style={{ marginTop: 24 }}>Your Hand</h4>
