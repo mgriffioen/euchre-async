@@ -296,22 +296,6 @@ export default function Game() {
   const [err, setErr] = useState<string | null>(null);
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
 
-  // Player name gate (required before joining/claiming a seat)
-  // Stored in localStorage so share-link opens still require a name once per device/browser.
-  const [playerName, setPlayerName] = useState<string>(() => {
-    return (localStorage.getItem("playerName") || "").trim();
-  });
-
-  const hasName = playerName.trim().length > 0;
-
-  function saveName() {
-    const trimmed = playerName.trim();
-    if (!trimmed) return;
-    localStorage.setItem("playerName", trimmed);
-    setPlayerName(trimmed);
-    setErr(null);
-  }
-
   /**
    * ----------------------------------------------------------
    * Auth + Firestore State
@@ -342,8 +326,7 @@ export default function Game() {
   !!game &&
   (game.phase === "lobby" || !game.phase) &&
   !!mySeat &&
-  mySeat === game.dealer &&
-  hasName;
+  mySeat === game.dealer;
 
   const winnerTeam = game?.winnerTeam ?? null; // "NS" | "EW" | null
 const winnerLabel =
@@ -485,7 +468,7 @@ const winnerLabel =
             isTurn={game.turn === realSeat}
             teamLabel={teamUi.labelForTeam[teamKeyForSeat(realSeat)]}
             isDealer={game.dealer === realSeat}
-            canClaim={hasName && !!uid && !game.seats[realSeat] && !mySeat}
+            canClaim={!!uid && !game.seats[realSeat] && !mySeat}
             playedCard={
               game.phase === "playing" ? (game.currentTrick?.cards?.[realSeat] ?? null) : null
             }
@@ -579,11 +562,6 @@ const winnerLabel =
   async function claimSeat(seat: Seat) {
     if (!gameRef || !uid || !gameId) return;
 
-    if (!hasName) {
-      setErr("Please enter a name before joining.");
-      return;
-    }
-
     try {
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(gameRef);
@@ -604,7 +582,7 @@ const winnerLabel =
         doc(db, "games", gameId, "players", uid),
         {
           uid,
-          name: playerName || localStorage.getItem("playerName") || "Player",
+          name: localStorage.getItem("playerName") || "Player",
           seat,
           joinedAt: serverTimestamp(),
         },
@@ -1082,43 +1060,6 @@ return (
     <h3 style={{ marginTop: 0 }}>Game</h3>
 
     {err && <div style={alertStyle}>{err}</div>}
-
-
-    {!hasName ? (
-      <div style={{ ...cardStyle, marginBottom: 12 }}>
-        <h4 style={{ marginTop: 0 }}>Enter your name</h4>
-        <div style={{ color: "#555", marginBottom: 10 }}>
-          You’ll need a name before joining this game.
-        </div>
-
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            placeholder="Your name"
-            style={{
-              flex: 1,
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid #ccc",
-              fontSize: 16, // prevents iOS zoom on focus
-            }}
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter") saveName();
-            }}
-          />
-          <button
-            style={btnStyle}
-            onClick={saveName}
-            disabled={!playerName.trim()}
-          >
-            Continue
-          </button>
-        </div>
-      </div>
-    ) : null}
-
 
       <div style={{ marginBottom: 12 }}>
         <div>
