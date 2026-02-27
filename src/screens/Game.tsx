@@ -1679,7 +1679,7 @@ function SeatCard(props: {
         </div>
       </div>
 
-      {!isFull && (
+      
         <div>
           {canClaim ? (
             <button onClick={onClaim} style={{ ...btnStyle, marginTop: 10, width: "100%" }}>
@@ -1687,7 +1687,7 @@ function SeatCard(props: {
             </button>
             ) : null}
         </div>
-      )}
+      
 
     </div>
     );
