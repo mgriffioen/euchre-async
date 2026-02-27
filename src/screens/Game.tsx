@@ -620,6 +620,27 @@ const winnerLabel =
     }
   }
 
+  const [copied, setCopied] = useState(false);
+
+async function copyShareLink(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // Fallback for older browsers / non-secure contexts
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  }
+
+  setCopied(true);
+  window.setTimeout(() => setCopied(false), 1200);
+}
+
   async function startHand() {
     if (!gameId || !uid || !gameRef || !game) return;
 
@@ -1089,7 +1110,6 @@ setSelectedCard(null);
    */
 return (
   <div>
-    <h3 style={{ marginTop: 0 }}>Game</h3>
 
     {err && <div style={alertStyle}>{err}</div>}
 
@@ -1131,6 +1151,25 @@ return (
           <b>Share link:</b>
           <input readOnly value={url} style={shareStyle} />
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+  <a href={shareUrl} target="_blank" rel="noreferrer">
+    {shareUrl}
+  </a>
+
+  <button
+    type="button"
+    onClick={() => copyShareLink(shareUrl)}
+    style={{
+      padding: "6px 10px",
+      borderRadius: 8,
+      border: "1px solid rgba(255,255,255,0.2)",
+      background: "rgba(255,255,255,0.06)",
+      cursor: "pointer",
+    }}
+  >
+    {copied ? "Copied!" : "Copy"}
+  </button>
+</div>
       </div>
 
       {!game ? (
