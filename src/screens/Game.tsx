@@ -1149,27 +1149,26 @@ return (
         </div>
         <div style={{ marginTop: 8 }}>
           <b>Share link:</b>
-          <input readOnly value={url} style={shareStyle} />
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-  <a href={url} target="_blank" rel="noreferrer">
-    {url}
-  </a>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <a href={url} target="_blank" rel="noreferrer">
+                {url}
+              </a>
 
-  <button
-    type="button"
-    onClick={() => copyShareLink(url)}
-    style={{
-      padding: "6px 10px",
-      borderRadius: 8,
-      border: "1px solid rgba(255,255,255,0.2)",
-      background: "rgba(255,255,255,0.06)",
-      cursor: "pointer",
-    }}
-  >
-    {copied ? "Copied!" : "Copy"}
-  </button>
-</div>
+              <button
+                type="button"
+                onClick={() => copyShareLink(url)}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  background: "rgba(255,255,255,0.06)",
+                  cursor: "pointer",
+                }}
+              >
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+        </div>
       </div>
 
       {!game ? (
