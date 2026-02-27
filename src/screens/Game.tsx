@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   collection,
@@ -363,26 +363,6 @@ export default function Game() {
   mySeat === (game.dealer ?? "N");
 
   const isMyTurn = !!uid && !!game && !!mySeat && game.turn === mySeat;
-
-  const prevIsMyTurn = useRef(false);
-
-    useEffect(() => {
-      if (!isMyTurn || prevIsMyTurn.current) {
-        prevIsMyTurn.current = isMyTurn;
-        return;
-      }
-
-      prevIsMyTurn.current = true;
-
-      const audio = new Audio("/sounds/turn.mp3");
-      audio.volume = 0.7;
-      audio.play().catch(() => {
-      });
-
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("Euchre", { body: "It’s your turn!" });
-      }
-    }, [isMyTurn]);
 
   const teamUi = useMemo(() => {
     // Internally we track NS vs EW (real seats). Keep Team A/B consistent for ALL players:
