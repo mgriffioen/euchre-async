@@ -322,6 +322,12 @@ export default function Game() {
   const scoreNS = game?.score?.NS ?? 0;
   const scoreEW = game?.score?.EW ?? 0;
 
+  const canDeal =
+  !!game &&
+  (game.phase === "lobby" || !game.phase) &&
+  !!mySeat &&
+  mySeat === game.dealer;
+
   const winnerTeam = game?.winnerTeam ?? null; // "NS" | "EW" | null
 const winnerLabel =
   winnerTeam === "NS" ? "Team A" : winnerTeam === "EW" ? "Team B" : null;
@@ -1065,14 +1071,14 @@ return (
         </div>
       </div>
 
-      {/* Host-only for now: N starts the hand */}
-      <button
-        onClick={startHand}
-        disabled={game?.status === "finished"}
-        style={{ ...btnStyle, width: "100%", marginBottom: 12 }}
-      >
-        Start Hand (Deal)
-      </button>
+      {canDeal ? (
+          <button
+            onClick={startHand}
+            style={{ ...btnStyle, width: "100%", marginBottom: 12 }}
+          >
+            Deal
+          </button>
+        ) : null}
 
       {!game ? (
         <p>Loading…</p>
