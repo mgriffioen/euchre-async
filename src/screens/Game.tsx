@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   collection,
@@ -607,13 +607,6 @@ export default function Game() {
    * Actions
    * ==========================================================
    */
-
-  async function enableNotifications() {
-  if (!("Notification" in window)) return;
-  if (Notification.permission === "default") {
-    await Notification.requestPermission();
-  }
-}
 
   async function claimSeat(seat: Seat) {
     if (!gameRef || !uid || !gameId) return;
