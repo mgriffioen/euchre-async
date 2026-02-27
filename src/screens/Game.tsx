@@ -353,8 +353,6 @@ export default function Game() {
 
   const isGameFinished = game?.status === "finished";
 
-  const isFull =
-    !!game?.seats && SEATS.every((s) => Boolean(game.seats[s]));
   const canDeal =
   !!game &&
   !isGameFinished &&
@@ -506,6 +504,7 @@ export default function Game() {
   };
 
     const SEATS = ["N", "E", "S", "W"] as const;
+    const isFull = !!game?.seats && SEATS.every((s) => Boolean(game.seats[s]));
 
   /**
    * ==========================================================
