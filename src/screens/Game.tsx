@@ -1675,14 +1675,6 @@ function SeatCard(props: {
       cursor: "pointer",
     };
 
-    const shareStyle: React.CSSProperties = {
-      width: "100%",
-      padding: 8,
-      borderRadius: 8,
-      border: "1px solid #ccc",
-      marginTop: 6,
-    };
-
     const tableStyle: React.CSSProperties = {
       display: "grid",
       gridTemplateColumns: "1fr 1fr 1fr",
