@@ -294,6 +294,7 @@ export default function Game() {
    * ----------------------------------------------------------
    */
   const [err, setErr] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
 
   // ----------------------------------------------------------
@@ -427,7 +428,7 @@ const winnerLabel =
     if (!mySeat) return { N: "N", E: "E", S: "S", W: "W" };
 
     const m: Record<Seat, Seat> = { N: "N", E: "E", S: "S", W: "W" };
-    (SEATS as Seat[]).forEach((real) => {
+    SEATS.forEach((real) => {
       const disp = realToDisplaySeat(real, mySeat);
       m[disp] = real;
     });
@@ -501,14 +502,9 @@ const winnerLabel =
         );
   };
 
-  const SEATS = ["N", "E", "S", "W"] as const;
+    const SEATS = ["N", "E", "S", "W"] as const;
 
-const seatsTaken =
-  game?.players
-    ? SEATS.filter((s) => Boolean((game.players as any)[s]))
-    : [];
-
-const isFull = seatsTaken.length === SEATS.length;
+  const isFull = !!game?.seats && SEATS.every((s) => Boolean(game.seats[s]));
 
   /**
    * ==========================================================
@@ -598,6 +594,8 @@ const isFull = seatsTaken.length === SEATS.length;
       return;
     }
 
+    setJoinError(null);
+
     if (isFull) {
       setJoinError("This game is full — all seats are already claimed.");
       return;
@@ -609,6 +607,9 @@ const isFull = seatsTaken.length === SEATS.length;
         if (!snap.exists()) throw new Error("Game missing");
 
         const data = snap.data() as GameDoc;
+
+        const full = (['N','E','S','W'] as const).every((s) => Boolean(data.seats[s]));
+        if (full) throw new Error('FULL');
 
         if (data.seats[seat]) throw new Error("Seat already taken");
         if (Object.values(data.seats).includes(uid)) throw new Error("You already claimed a seat");
@@ -630,6 +631,10 @@ const isFull = seatsTaken.length === SEATS.length;
         { merge: true }
         );
     } catch (e: any) {
+      if (e?.message === "FULL") {
+        setJoinError("This game is full — all seats are already claimed.");
+        return;
+      }
       setErr(e?.message ?? String(e));
     }
   }
@@ -660,7 +665,7 @@ async function copyShareLink(text: string) {
 
     setErr(null);
 
-    const allFilled = (SEATS as Seat[]).every((seat) => !!game.seats[seat]);
+    const allFilled = SEATS.every((seat) => !!game.seats[seat]);
     if (!allFilled) {
       setErr("Need all 4 seats filled to start a hand.");
       return;
@@ -723,7 +728,7 @@ async function copyShareLink(text: string) {
       handNumber: (game.handNumber ?? 0) + 1,
     });
 
-    for (const seat of SEATS as Seat[]) {
+    for (const seat of SEATS) {
       const seatUid = game.seats[seat]!;
       const playerRef = doc(db, "games", gameId, "players", seatUid);
 
