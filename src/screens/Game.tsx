@@ -327,6 +327,19 @@ export default function Game() {
   ? ((Object.entries(game.seats).find(([, v]) => v === uid)?.[0] as Seat | undefined) ?? null)
   : null;
 
+  // Dealer for the *next* hand while in lobby (falls back to N for brand new games)
+  const lobbyDealer: Seat = (game?.dealer ?? "N");
+
+  // Show Deal only to the current dealer, only while waiting in lobby
+  const canDeal =
+    !!game &&
+    game.status === "lobby" &&
+    game.phase === "lobby" &&
+    !!mySeat &&
+    mySeat === lobbyDealer;
+
+
+
   const isMyTurn = !!uid && !!game && !!mySeat && game.turn === mySeat;
 
   const teamUi = useMemo(() => {
@@ -568,7 +581,7 @@ export default function Game() {
       return;
     }
 
-    const dealer: Seat = game.dealer ? nextSeat(game.dealer) : "N";
+    const dealer: Seat = (game.dealer ?? "N");
     const firstToAct: Seat = nextSeat(dealer);
 
     const deck = shuffle(createEuchreDeck());
@@ -922,6 +935,8 @@ export default function Game() {
               currentTrick: null,
               status: "lobby",
               phase: "lobby",
+              // advance dealer for next hand (so next dealer sees Deal button in lobby)
+              dealer: nextSeat(g.dealer ?? "N"),
 
               upcard: null,
               kitty: null,
@@ -991,15 +1006,6 @@ export default function Game() {
             <input readOnly value={url} style={shareStyle} />
           </div>
         </div>
-
-      {/* Host-only for now: N starts the hand */}
-        <button
-          onClick={startHand}
-          disabled={!game || mySeat !== "N"}
-          style={{ ...btnStyle, width: "100%", marginBottom: 12 }}
-        >
-          Start Hand (Deal)
-        </button>
 
         {!game ? (
           <p>Loading…</p>
@@ -1300,7 +1306,17 @@ export default function Game() {
                     </div>
                   </div>
 
-          {/* My private hand */}
+                  {/* Deal (dealer-only, lobby-only) */}
+                  {canDeal ? (
+                    <button
+                      onClick={startHand}
+                      style={{ ...btnStyle, width: "100%", marginBottom: 12 }}
+                    >
+                      Deal
+                    </button>
+                  ) : null}
+
+{/* My private hand */}
                   <h4 style={{ marginTop: 24 }}>Your Hand</h4>
                   <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
                     {displayHand.map((code, i) => {
