@@ -1083,7 +1083,6 @@ setSelectedCard(null);
    */
 return (
   <div>
-    <h3 style={{ marginTop: 0 }}>Game</h3>
 
     {err && <div style={alertStyle}>{err}</div>}
 
