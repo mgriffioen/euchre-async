@@ -1196,12 +1196,11 @@ return (
       border: "1px solid rgba(255,255,255,0.15)",
       background: "rgba(255,255,255,0.06)",
       marginTop: 10,
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: 600,
     }}
   >
-    This game is full (all 4 seats are claimed). You can start a new game, or
-    ask someone to leave a seat.
+    This game is full. You have joined as a spectator. 
   </div>
 )}
 
