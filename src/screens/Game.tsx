@@ -1224,6 +1224,14 @@ return (
                     <span style={{ fontSize: 12, fontWeight: 700, color: "#666" }}>Team B</span>
                   </span>
                 </div>
+                
+        <div style={cardStyle}>
+          {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
+            <div>
+              <b>Trump:</b> {suitSymbol(game.trump)}
+            </div>
+            )}
+        </div>
 
           {/* Tricks tracker (Team A = NS, Team B = EW) */}
                 {game.phase === "playing" && (
@@ -1235,11 +1243,6 @@ return (
                     />
                     )}
 
-          {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
-            <div>
-              <b>Trump:</b> {suitSymbol(game.trump)}
-            </div>
-
           {/* Seats */}
 
                 <div style={tableStyle}>
@@ -1250,10 +1253,8 @@ return (
                 </div>
 
           {/* Upcard */}
-                
+
         <div style={cardStyle}>
-
-
           {game.upcard && game.phase !== "playing" && (
             <div style={{ marginTop: 10 }}>
               <div style={{ marginBottom: 10 }}>
@@ -1271,7 +1272,6 @@ return (
                     );
               })()}
             </div>
-            )}
             )}
         </div>
 
