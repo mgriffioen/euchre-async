@@ -1224,14 +1224,6 @@ return (
                     <span style={{ fontSize: 12, fontWeight: 700, color: "#666" }}>Team B</span>
                   </span>
                 </div>
-                
-        <div>
-          {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
-            <div>
-              <b>Trump:</b> {suitSymbol(game.trump)}
-            </div>
-            )}
-        </div>
 
           {/* Tricks tracker (Team A = NS, Team B = EW) */}
                 {game.phase === "playing" && (
@@ -1244,6 +1236,14 @@ return (
                     )}
 
           {/* Seats */}
+                
+        <div>
+          {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
+            <div>
+              <b>Trump:</b> {suitSymbol(game.trump)}
+            </div>
+            )}
+        </div>
 
                 <div style={tableStyle}>
                   {renderSeat("N", "2 / 3", "1 / 2")}
