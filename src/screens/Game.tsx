@@ -342,6 +342,7 @@ export default function Game() {
   const scoreNS = game?.score?.NS ?? 0;
   const scoreEW = game?.score?.EW ?? 0;
 
+  const isFull = !!game?.seats && SEATS.every((s) => Boolean(game.seats[s]));
 
   const winnerTeam = game?.winnerTeam ?? null; // "NS" | "EW" | null
 const winnerLabel =
@@ -458,7 +459,7 @@ const winnerLabel =
     const cards = trick?.cards ?? {};
     const trickStarted = Object.keys(cards).length > 0;
     const leadSuit = trickStarted ? (trick?.leadSuit ?? null) : null;
-    const isFull = !!game?.seats && SEATS.every((s) => Boolean(game.seats[s]));
+
 
   // If you’re leading (no lead suit yet), you can play anything.
     if (!leadSuit) {
