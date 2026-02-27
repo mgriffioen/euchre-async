@@ -458,6 +458,7 @@ const winnerLabel =
     const cards = trick?.cards ?? {};
     const trickStarted = Object.keys(cards).length > 0;
     const leadSuit = trickStarted ? (trick?.leadSuit ?? null) : null;
+    const isFull = !!game?.seats && SEATS.every((s) => Boolean(game.seats[s]));
 
   // If you’re leading (no lead suit yet), you can play anything.
     if (!leadSuit) {
@@ -503,8 +504,6 @@ const winnerLabel =
   };
 
     const SEATS = ["N", "E", "S", "W"] as const;
-
-  const isFull = !!game?.seats && SEATS.every((s) => Boolean(game.seats[s]));
 
   /**
    * ==========================================================
