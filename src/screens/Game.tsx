@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   collection,
@@ -773,6 +773,18 @@ export default function Game() {
 
     return () => unsub();
   }, [gameId, uid]);
+
+  // 5) Play a sound notification when it becomes the local player's turn.
+  //    Uses a ref to track the previous value so the sound only fires on a
+  //    false → true transition (not on the initial page load).
+  const prevIsMyTurnRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (prevIsMyTurnRef.current === false && isMyTurn) {
+      const audio = new Audio("/sounds/turn.mp3");
+      audio.play().catch(() => {});
+    }
+    prevIsMyTurnRef.current = isMyTurn;
+  }, [isMyTurn]);
 
   // ---------------------------------------------------------------------------
   // Actions
