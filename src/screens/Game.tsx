@@ -31,7 +31,8 @@ type GamePhase =
   | "bidding_round_1"
   | "bidding_round_2"
   | "dealer_discard"
-  | "playing";
+  | "playing"
+  | "trick_complete";
 
 type GameDoc = {
   status: string;
@@ -61,6 +62,8 @@ type GameDoc = {
     leadSeat: Seat;
     leadSuit: Suit | null; // effective suit of the lead card
     cards: Partial<Record<Seat, CardCode>>; // keyed by REAL seat
+    // Set when all 4 cards are played; cleared when the trick is advanced.
+    trickWinner?: Seat | null;
   } | null;
 
   tricksTaken?: { NS: number; EW: number } | null;
@@ -687,7 +690,9 @@ export default function Game() {
           isDealer={game.dealer === realSeat}
           canClaim={!!uid && !game.seats[realSeat] && !mySeat}
           playedCard={
-            game.phase === "playing" ? (game.currentTrick?.cards?.[realSeat] ?? null) : null
+            (game.phase === "playing" || game.phase === "trick_complete")
+              ? (game.currentTrick?.cards?.[realSeat] ?? null)
+              : null
           }
           onClaim={() => claimSeat(realSeat)}
         />
@@ -1196,75 +1201,25 @@ export default function Game() {
         const seatsPlayed = Object.keys(nextCards).length;
 
         if (seatsPlayed === 4) {
-          // All four players have played — resolve the trick.
+          // All four players have played — determine the winner and pause so every
+          // player can see the completed trick before it is cleared from the table.
           const trickWinner = winnerOfTrick(nextCards, leadSeat, trump, leadSuit);
-
-          const prevTaken = g.tricksTaken ?? { NS: 0, EW: 0 };
-          const winTeam = teamOf(trickWinner);
-          const nextTaken = {
-            NS: prevTaken.NS + (winTeam === "NS" ? 1 : 0),
-            EW: prevTaken.EW + (winTeam === "EW" ? 1 : 0),
-          };
-
-          const nextWinners = [...((g.trickWinners ?? []) as Seat[]), trickWinner];
 
           tx.update(playerRef, { hand: nextHand, updatedAt: serverTimestamp() });
 
-          if (currentTrickNumber >= 5) {
-            // Hand is over — score the hand and return to lobby (or end the game).
-            const makerSeat = g.makerSeat as Seat | null;
-            const makerTeam: TeamKey | null = makerSeat ? teamKeyForSeat(makerSeat) : null;
-            const defenseTeam: TeamKey | null = makerTeam ? otherTeam(makerTeam) : null;
-
-            const prevScore = g.score ?? { NS: 0, EW: 0 };
-            const nextScore = { ...prevScore };
-
-            if (makerTeam && defenseTeam) {
-              const makerTricks = nextTaken[makerTeam];
-              if (makerTricks >= 5) {
-                nextScore[makerTeam] += 2; // march
-              } else if (makerTricks >= 3) {
-                nextScore[makerTeam] += 1; // made it
-              } else {
-                nextScore[defenseTeam] += 2; // euchred
-              }
-            }
-
-            const gameWinner = winningTeam(nextScore, 10);
-            const nextDealer: Seat = nextSeat(g.dealer);
-
-            tx.update(gameRef, {
-              updatedAt: serverTimestamp(),
-              tricksTaken: nextTaken,
-              trickWinners: nextWinners,
-              score: nextScore,
-              status: gameWinner ? "finished" : "lobby",
-              winnerTeam: gameWinner,
-              dealer: nextDealer,
-              turn: nextDealer,
-              phase: "lobby",
-              currentTrick: null,
-              upcard: null,
-              kitty: null,
-              trump: null,
-              makerSeat: null,
-              bidding: null,
-            });
-            return;
-          }
-
-          // Trick complete but hand continues — winner leads the next trick.
+          // Write trick_complete: cards stay on the table, scoring is deferred until
+          // the trick winner presses "Next Trick" (or "Finish Hand" on trick 5).
           tx.update(gameRef, {
             updatedAt: serverTimestamp(),
-            tricksTaken: nextTaken,
-            trickWinners: nextWinners,
+            phase: "trick_complete",
+            turn: trickWinner, // trick winner is the one who advances
             currentTrick: {
-              trickNumber: currentTrickNumber + 1,
-              leadSeat: trickWinner,
-              leadSuit: null,
-              cards: {},
+              trickNumber: currentTrickNumber,
+              leadSeat,
+              leadSuit,
+              cards: nextCards,
+              trickWinner, // stored so advanceTrick can read it without recomputing
             },
-            turn: trickWinner,
           });
           return;
         }
@@ -1285,6 +1240,107 @@ export default function Game() {
 
       setErr(null);
       setSelectedCard(null);
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    }
+  }
+
+  // Called by the trick winner after all players have seen the completed trick.
+  // Scores the trick, then either starts the next trick or ends the hand.
+  async function advanceTrick() {
+    if (isGameFinished) return;
+    if (!gameRef || !gameId || !game || !uid || !mySeat) return;
+    if (game.phase !== "trick_complete") return;
+    if (game.turn !== mySeat) return; // only the trick winner may advance
+
+    const trick = game.currentTrick;
+    if (!trick?.trickWinner) return;
+
+    try {
+      await runTransaction(db, async (tx) => {
+        const gameSnap = await tx.get(gameRef);
+        if (!gameSnap.exists()) throw new Error("Game missing");
+        const g = gameSnap.data() as GameDoc;
+
+        if (g.phase !== "trick_complete") return;
+        if (g.turn !== mySeat) return;
+        if (!g.trump) throw new Error("Trump not set");
+
+        const completedTrick = g.currentTrick;
+        if (!completedTrick?.trickWinner) throw new Error("Trick winner missing");
+
+        const trickWinner = completedTrick.trickWinner as Seat;
+        const currentTrickNumber = completedTrick.trickNumber;
+
+        const prevTaken = g.tricksTaken ?? { NS: 0, EW: 0 };
+        const winTeam = teamOf(trickWinner);
+        const nextTaken = {
+          NS: prevTaken.NS + (winTeam === "NS" ? 1 : 0),
+          EW: prevTaken.EW + (winTeam === "EW" ? 1 : 0),
+        };
+
+        const nextWinners = [...((g.trickWinners ?? []) as Seat[]), trickWinner];
+
+        if (currentTrickNumber >= 5) {
+          // Hand is over — score and return to lobby (or end the game).
+          const makerSeat = g.makerSeat as Seat | null;
+          const makerTeam: TeamKey | null = makerSeat ? teamKeyForSeat(makerSeat) : null;
+          const defenseTeam: TeamKey | null = makerTeam ? otherTeam(makerTeam) : null;
+
+          const prevScore = g.score ?? { NS: 0, EW: 0 };
+          const nextScore = { ...prevScore };
+
+          if (makerTeam && defenseTeam) {
+            const makerTricks = nextTaken[makerTeam];
+            if (makerTricks >= 5) {
+              nextScore[makerTeam] += 2; // march
+            } else if (makerTricks >= 3) {
+              nextScore[makerTeam] += 1; // made it
+            } else {
+              nextScore[defenseTeam] += 2; // euchred
+            }
+          }
+
+          const gameWinner = winningTeam(nextScore, 10);
+          const nextDealer: Seat = nextSeat(g.dealer);
+
+          tx.update(gameRef, {
+            updatedAt: serverTimestamp(),
+            tricksTaken: nextTaken,
+            trickWinners: nextWinners,
+            score: nextScore,
+            status: gameWinner ? "finished" : "lobby",
+            winnerTeam: gameWinner,
+            dealer: nextDealer,
+            turn: nextDealer,
+            phase: "lobby",
+            currentTrick: null,
+            upcard: null,
+            kitty: null,
+            trump: null,
+            makerSeat: null,
+            bidding: null,
+          });
+          return;
+        }
+
+        // Hand continues — winner leads the next trick.
+        tx.update(gameRef, {
+          updatedAt: serverTimestamp(),
+          tricksTaken: nextTaken,
+          trickWinners: nextWinners,
+          phase: "playing",
+          currentTrick: {
+            trickNumber: currentTrickNumber + 1,
+            leadSeat: trickWinner,
+            leadSuit: null,
+            cards: {},
+          },
+          turn: trickWinner,
+        });
+      });
+
+      setErr(null);
     } catch (e: any) {
       setErr(e?.message ?? String(e));
     }
@@ -1391,6 +1447,12 @@ export default function Game() {
               ) : (
                 <>⏳ Waiting for dealer ({displayDealer ?? game.dealer}) to discard…</>
               )
+            ) : game.phase === "trick_complete" ? (
+              isMyTurn ? (
+                <>🟢 You won the trick — continue when ready</>
+              ) : (
+                <>⏳ Waiting for {turnName} to continue…</>
+              )
             ) : game.phase === "playing" ? (
               isMyTurn ? (
                 <>🟢 Your turn</>
@@ -1454,8 +1516,8 @@ export default function Game() {
             </span>
           </div>
 
-          {/* Trick progress tracker (visible during play only) */}
-          {game.phase === "playing" && (
+          {/* Trick progress tracker (visible during play and trick review) */}
+          {(game.phase === "playing" || game.phase === "trick_complete") && (
             <TrickMeter
               aLabel={teamUi.labelForTeam[teamUi.aTeam]}
               aCount={game.tricksTaken?.[teamUi.aTeam] ?? 0}
@@ -1464,9 +1526,9 @@ export default function Game() {
             />
           )}
 
-          {/* Trump indicator (visible during play and dealer discard) */}
+          {/* Trump indicator (visible during play, dealer discard, and trick review) */}
           <div>
-            {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
+            {(game.phase === "playing" || game.phase === "dealer_discard" || game.phase === "trick_complete") && game.trump && (
               <div>
                 <b>Trump:</b> {suitSymbol(game.trump)}
               </div>
@@ -1633,6 +1695,38 @@ export default function Game() {
             </div>
           )}
 
+          {/* Trick complete — all 4 cards visible; trick winner advances */}
+          {game.phase === "trick_complete" && game.currentTrick?.trickWinner && (() => {
+            const trickWinnerSeat = game.currentTrick.trickWinner as Seat;
+            const trickWinnerUid = game.seats[trickWinnerSeat];
+            const trickWinnerName = trickWinnerUid
+              ? players[trickWinnerUid]?.name || displaySeat(trickWinnerSeat)
+              : displaySeat(trickWinnerSeat);
+            const isLastTrick = (game.currentTrick?.trickNumber ?? 0) >= 5;
+            const iWonTheTrick = mySeat === trickWinnerSeat;
+
+            return (
+              <div style={{ ...cardStyle, marginTop: 12 }}>
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                  {iWonTheTrick ? "You won the trick! 🎉" : `${trickWinnerName} won the trick`}
+                </div>
+
+                {iWonTheTrick ? (
+                  <button
+                    onClick={advanceTrick}
+                    style={{ ...btnStyle, width: "100%" }}
+                  >
+                    {isLastTrick ? "Finish Hand" : "Next Trick"}
+                  </button>
+                ) : (
+                  <div style={{ color: "#555" }}>
+                    Waiting for {trickWinnerName} to continue…
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Deal button — only visible to the dealer when in the lobby phase */}
           {canDeal ? (
             <button
@@ -1661,13 +1755,15 @@ export default function Game() {
               const isPlayingTurn = game?.phase === "playing" && isMyTurn;
               const { mustFollow, playableSet } = playableInfo;
               const isPlayable = !isPlayingTurn || !playableSet ? true : playableSet.has(code);
+              // Cards are never interactive during trick_complete — we're just showing the hand.
+              const isInteractive = game?.phase !== "trick_complete";
 
               return (
                 <div
                   key={code + i}
                   style={{
-                    opacity: isPlayable ? 1 : 0.35,
-                    pointerEvents: isPlayable ? "auto" : "none",
+                    opacity: isPlayable && isInteractive ? 1 : 0.35,
+                    pointerEvents: isPlayable && isInteractive ? "auto" : "none",
                     transition: "opacity 120ms ease",
                   }}
                   title={!isPlayable && mustFollow ? `Must follow ${mustFollow}` : undefined}
