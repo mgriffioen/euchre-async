@@ -1545,7 +1545,7 @@ export default function Game() {
 
           {/* Upcard (hidden once play begins) */}
           <div>
-            {game.upcard && game.phase !== "playing" && (
+            {game.upcard && game.phase !== "playing" && game.phase !== "trick_complete" && (
               <div style={{ marginTop: 10 }}>
                 <div style={{ marginBottom: 10 }}>
                   <b>Upcard:</b>
