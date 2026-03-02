@@ -775,13 +775,31 @@ export default function Game() {
   }, [gameId, uid]);
 
   // 5) Play a sound notification when it becomes the local player's turn.
-  //    Uses a ref to track the previous value so the sound only fires on a
-  //    false → true transition (not on the initial page load).
+  //    Mobile browsers block programmatic audio unless the Audio element has
+  //    been unlocked by a direct user gesture first. We create the element
+  //    once, prime it on the first touch/click, then reuse it for turn alerts.
+  const turnAudioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    const audio = new Audio("/sounds/turn.mp3");
+    turnAudioRef.current = audio;
+
+    const unlock = () => {
+      audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
+    };
+    window.addEventListener("touchstart", unlock, { once: true });
+    window.addEventListener("click", unlock, { once: true });
+
+    return () => {
+      window.removeEventListener("touchstart", unlock);
+      window.removeEventListener("click", unlock);
+    };
+  }, []);
+
   const prevIsMyTurnRef = useRef<boolean | null>(null);
   useEffect(() => {
-    if (prevIsMyTurnRef.current === false && isMyTurn) {
-      const audio = new Audio("/sounds/turn.mp3");
-      audio.play().catch(() => {});
+    if (prevIsMyTurnRef.current === false && isMyTurn && turnAudioRef.current) {
+      turnAudioRef.current.currentTime = 0;
+      turnAudioRef.current.play().catch(() => {});
     }
     prevIsMyTurnRef.current = isMyTurn;
   }, [isMyTurn]);
