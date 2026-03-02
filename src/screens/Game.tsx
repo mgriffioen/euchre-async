@@ -18,24 +18,20 @@ import { parseCard, rankLabel, suitSymbol } from "../lib/cards";
 import type { CardCode } from "../lib/cards";
 import { createEuchreDeck, shuffle } from "../lib/deal";
 
-/**
- * ==========================================================
- * Types / Constants
- * ==========================================================
- */
+// =============================================================================
+// Types & Constants
+// =============================================================================
 
 type Seat = "N" | "E" | "S" | "W";
 type Suit = "S" | "H" | "D" | "C";
-
-const SEATS: Seat[] = ["N", "E", "S", "W"];
-const SUITS: Suit[] = ["S", "H", "D", "C"];
+type TeamKey = "NS" | "EW";
 
 type GamePhase =
-| "lobby"
-| "bidding_round_1"
-| "bidding_round_2"
-| "dealer_discard"
-| "playing";
+  | "lobby"
+  | "bidding_round_1"
+  | "bidding_round_2"
+  | "dealer_discard"
+  | "playing";
 
 type GameDoc = {
   status: string;
@@ -61,10 +57,10 @@ type GameDoc = {
   } | null;
 
   currentTrick?: {
-    trickNumber: number; // 1..5
+    trickNumber: number; // 1–5
     leadSeat: Seat;
-    leadSuit: Suit | null; // effective suit
-    cards: Partial<Record<Seat, CardCode>>; // REAL seat -> card
+    leadSuit: Suit | null; // effective suit of the lead card
+    cards: Partial<Record<Seat, CardCode>>; // keyed by REAL seat
   } | null;
 
   tricksTaken?: { NS: number; EW: number } | null;
@@ -81,14 +77,61 @@ type PlayerDoc = {
   hand?: CardCode[];
 };
 
-/**
- * Team display:
- * - Data is always tracked as NS vs EW (real seats)
- * - UI can show per-viewer Team A (you + partner) and Team B (opponents)
- */
-type TeamKey = "NS" | "EW";
+// All seats in clockwise order
+const SEATS: Seat[] = ["N", "E", "S", "W"];
 
+// All four suits
+const SUITS: Suit[] = ["S", "H", "D", "C"];
+
+// =============================================================================
+// Styles
+// =============================================================================
+// Defined near the top so they're available to all components in this file.
+
+const alertStyle: React.CSSProperties = {
+  padding: 12,
+  background: "#fff3cd",
+  border: "1px solid #ffecb5",
+  borderRadius: 10,
+  marginBottom: 12,
+};
+
+const cardStyle: React.CSSProperties = {
+  padding: 12,
+  border: "1px solid #ddd",
+  borderRadius: 12,
+  background: "white",
+  marginBottom: 12,
+};
+
+const btnStyle: React.CSSProperties = {
+  padding: "10px 14px",
+  borderRadius: 10,
+  border: "1px solid #ccc",
+  background: "white",
+  cursor: "pointer",
+};
+
+const tableStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr 1fr",
+  gridTemplateRows: "auto auto auto",
+  gap: 10,
+  alignItems: "stretch",
+  justifyItems: "stretch",
+};
+
+// =============================================================================
+// Pure Helpers — Team & Seat
+// =============================================================================
+
+// Returns which team a given real seat belongs to.
 function teamKeyForSeat(seat: Seat): TeamKey {
+  return seat === "N" || seat === "S" ? "NS" : "EW";
+}
+
+// Alias used in game-logic contexts (equivalent to teamKeyForSeat).
+function teamOf(seat: Seat): TeamKey {
   return seat === "N" || seat === "S" ? "NS" : "EW";
 }
 
@@ -96,126 +139,89 @@ function otherTeam(team: TeamKey): TeamKey {
   return team === "NS" ? "EW" : "NS";
 }
 
+// Returns the winning team if either team has reached the target score, or null if the game is ongoing.
 function winningTeam(score: { NS: number; EW: number }, target = 10): TeamKey | null {
   if (score.NS >= target) return "NS";
   if (score.EW >= target) return "EW";
   return null;
 }
 
-function TrickMeter(props: {
-  aLabel: string;
-  aCount: number;
-  bLabel: string;
-  bCount: number;
-}) {
-  const { aLabel, aCount, bLabel, bCount } = props;
-
-  const DotRow = ({ filled }: { filled: number }) => (
-    <div style={{ display: "flex", gap: 6 }}>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div
-          key={i}
-          style={{
-            width: 12,
-            height: 12,
-            borderRadius: 999,
-            border: "1px solid #bbb",
-            background: i < filled ? "#111" : "transparent",
-          }}
-          />
-          ))}
-    </div>
-    );
-
-  return (
-    <div style={{ ...cardStyle, marginBottom: 12 }}>
-      <div style={{ fontWeight: 700, marginBottom: 10 }}>Tricks This Hand</div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "72px 1fr 28px", gap: 10, rowGap: 10 }}>
-        <div style={{ fontWeight: 700 }}>{aLabel}</div>
-        <DotRow filled={aCount} />
-        <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{aCount}</div>
-
-        <div style={{ fontWeight: 700 }}>{bLabel}</div>
-        <DotRow filled={bCount} />
-        <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{bCount}</div>
-      </div>
-    </div>
-    );
-}
-
-/**
- * ==========================================================
- * Pure Helpers (no React state)
- * ==========================================================
- */
-
+// Returns the next seat clockwise from the given seat.
 function nextSeat(seat: Seat): Seat {
   const i = SEATS.indexOf(seat);
   return SEATS[(i + 1) % SEATS.length];
 }
 
-function suitCharFromCard(code: CardCode): Suit {
-  return code[1] as Suit;
-}
+// =============================================================================
+// Pure Helpers — Seat Rotation
+// =============================================================================
+// Firestore always stores REAL seats (N/E/S/W).
+// The UI rotates the table so the local player always appears at the South position.
+// All game logic and Firestore reads/writes use REAL seats; rotation is view-only.
 
-/**
- * Seat rotation:
- * - Firestore stores REAL seats (N/E/S/W)
- * - UI shows DISPLAY seats rotated so viewer is always South
- */
 function seatIndex(seat: Seat): number {
   return SEATS.indexOf(seat); // N=0, E=1, S=2, W=3
 }
 
+// Calculates how many positions to rotate so that `my` seat lands at South (index 2).
 function rotationOffsetToMakeMySeatSouth(my: Seat): number {
   const southIdx = seatIndex("S"); // 2
   const myIdx = seatIndex(my);
   return (southIdx - myIdx + 4) % 4;
 }
 
+// Converts a real seat to the display seat the local player sees.
 function realToDisplaySeat(real: Seat, my: Seat): Seat {
   const off = rotationOffsetToMakeMySeatSouth(my);
   return SEATS[(seatIndex(real) + off) % 4];
 }
 
-function teamOf(seat: Seat): "NS" | "EW" {
-  return seat === "N" || seat === "S" ? "NS" : "EW";
+// =============================================================================
+// Pure Helpers — Euchre Card Logic
+// =============================================================================
+
+// Extracts the suit character from a card code (e.g. "JS" → "S").
+function suitCharFromCard(code: CardCode): Suit {
+  return code[1] as Suit;
 }
 
-/**
- * Euchre helpers (minimum correct set)
- */
+// Returns the suit of the left bower for a given trump suit.
+// The left bower is the Jack of the same-color suit as trump.
 function leftBowerSuit(trump: Suit): Suit {
   if (trump === "H") return "D";
   if (trump === "D") return "H";
   if (trump === "S") return "C";
-  return "S";
+  return "S"; // trump === "C"
 }
 
-function isJack(code: CardCode) {
+function isJack(code: CardCode): boolean {
   const { rank } = parseCard(code);
   return rankLabel(rank) === "J";
 }
 
-function effectiveSuit(code: CardCode, trump: Suit): Suit {
-  const s = suitCharFromCard(code);
-  if (isJack(code) && s === leftBowerSuit(trump)) return trump; // left bower is trump
-  return s;
-}
-
+// Returns true if the card is the right bower (Jack of trump suit).
 function isRightBower(code: CardCode, trump: Suit): boolean {
   return isJack(code) && suitCharFromCard(code) === trump;
 }
 
+// Returns true if the card is the left bower (Jack of the same-color suit as trump).
 function isLeftBower(code: CardCode, trump: Suit): boolean {
   return isJack(code) && suitCharFromCard(code) === leftBowerSuit(trump);
 }
 
+// Returns the effective suit of a card, accounting for the left bower counting as trump.
+function effectiveSuit(code: CardCode, trump: Suit): Suit {
+  const s = suitCharFromCard(code);
+  if (isJack(code) && s === leftBowerSuit(trump)) return trump;
+  return s;
+}
+
+// Returns true if the hand contains at least one card of the given effective suit.
 function hasSuitInHand(hand: CardCode[], suit: Suit, trump: Suit): boolean {
   return hand.some((c) => effectiveSuit(c, trump) === suit);
 }
 
+// Returns a new hand array with the first occurrence of `code` removed.
 function removeOneCard(hand: CardCode[], code: CardCode): CardCode[] {
   const idx = hand.indexOf(code);
   if (idx === -1) return hand;
@@ -224,11 +230,11 @@ function removeOneCard(hand: CardCode[], code: CardCode): CardCode[] {
   return next;
 }
 
+// Returns a numeric rank strength for a card (used as a tiebreaker within suits).
 function rankStrength(code: CardCode): number {
   const { rank } = parseCard(code);
   const r = String(rank);
 
-  // Adjust these if your parseCard uses different symbols
   if (r === "9") return 1;
   if (r === "10" || r === "T") return 2;
   if (r === "J") return 3;
@@ -236,11 +242,12 @@ function rankStrength(code: CardCode): number {
   if (r === "K") return 5;
   if (r === "A") return 6;
 
-  // fallback
   const n = Number(r);
   return Number.isFinite(n) ? n : 0;
 }
 
+// Returns a trick-winning strength score for a card.
+// Right bower (200) > left bower (199) > trump (150+rank) > lead suit (100+rank) > off-suit (rank only).
 function trickStrength(code: CardCode, leadSuit: Suit, trump: Suit): number {
   if (isRightBower(code, trump)) return 200;
   if (isLeftBower(code, trump)) return 199;
@@ -250,15 +257,16 @@ function trickStrength(code: CardCode, leadSuit: Suit, trump: Suit): number {
 
   if (eff === trump) return 150 + r;
   if (eff === leadSuit) return 100 + r;
-  return 0 + r;
+  return r; // off-suit card; can only win if it's the only card played
 }
 
+// Determines which seat won the trick based on card strengths.
 function winnerOfTrick(
   cards: Partial<Record<Seat, CardCode>>,
   leadSeat: Seat,
   trump: Suit,
   leadSuit: Suit
-  ): Seat {
+): Seat {
   let bestSeat = leadSeat;
   let bestScore = -1;
 
@@ -275,32 +283,220 @@ function winnerOfTrick(
   return bestSeat;
 }
 
-/**
- * ==========================================================
- * Game Screen
- * ==========================================================
- */
+// =============================================================================
+// Sub-component — TrickMeter
+// =============================================================================
+// Displays a dot-based tricks-taken tracker for both teams during the playing phase.
+
+function TrickMeter(props: {
+  aLabel: string;
+  aCount: number;
+  bLabel: string;
+  bCount: number;
+}) {
+  const { aLabel, aCount, bLabel, bCount } = props;
+
+  // Renders a row of 5 dots, filled up to `filled`.
+  const DotRow = ({ filled }: { filled: number }) => (
+    <div style={{ display: "flex", gap: 6 }}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            width: 12,
+            height: 12,
+            borderRadius: 999,
+            border: "1px solid #bbb",
+            background: i < filled ? "#111" : "transparent",
+          }}
+        />
+      ))}
+    </div>
+  );
+
+  return (
+    <div style={{ ...cardStyle, marginBottom: 12 }}>
+      <div style={{ fontWeight: 700, marginBottom: 10 }}>Tricks This Hand</div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "72px 1fr 28px", gap: 10, rowGap: 10 }}>
+        <div style={{ fontWeight: 700 }}>{aLabel}</div>
+        <DotRow filled={aCount} />
+        <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{aCount}</div>
+
+        <div style={{ fontWeight: 700 }}>{bLabel}</div>
+        <DotRow filled={bCount} />
+        <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{bCount}</div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Sub-component — SeatCard
+// =============================================================================
+// Renders a single player's seat box on the table. Receives the DISPLAY seat
+// position for layout purposes, but all game logic uses REAL seats externally.
+
+function SeatCard(props: {
+  seat: Seat; // display seat (used for card/text layout direction)
+  label: string;
+  isYou: boolean;
+  isTurn: boolean;
+  teamLabel?: string;
+  isDealer: boolean;
+  canClaim: boolean;
+  playedCard?: CardCode | null;
+  onClaim: () => void;
+}) {
+  const { seat, label, isTurn, teamLabel, canClaim, playedCard, onClaim } = props;
+
+  // Layout varies by display position so the played card always faces the center of the table.
+  // E: card left of text | W: card right of text | N: card below text | S: card above text
+  const layout =
+    seat === "E"
+      ? { dir: "row" as const, textAlign: "left" as const, textItems: "flex-start" as const }
+      : seat === "W"
+      ? { dir: "row-reverse" as const, textAlign: "right" as const, textItems: "flex-end" as const }
+      : seat === "N"
+      ? { dir: "column-reverse" as const, textAlign: "center" as const, textItems: "center" as const }
+      : { dir: "column" as const, textAlign: "center" as const, textItems: "center" as const }; // S
+
+  const teamIsA = teamLabel === "Team A";
+
+  return (
+    <div
+      style={{
+        ...cardStyle,
+        borderColor: isTurn ? "#0a7" : "#ddd",
+        boxShadow: isTurn ? "0 0 0 2px rgba(0,170,119,0.15)" : undefined,
+        display: "flex",
+        flexDirection: "column",
+        paddingTop: 6,
+        paddingBottom: 10,
+        minHeight: 130,
+      }}
+    >
+      {/* Player name, team badge, dealer badge, and played card */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: layout.dir,
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 10,
+          flex: "1 1 auto",
+        }}
+      >
+        {/* Played card (shown during trick play) */}
+        {playedCard ? (
+          <div style={{ flex: "0 0 auto" }}>
+            {(() => {
+              const { rank, suit } = parseCard(playedCard);
+              return (
+                <div style={{ transform: "scale(0.92)", transformOrigin: "center" }}>
+                  <Card
+                    rank={rankLabel(rank)}
+                    suit={suitSymbol(suit)}
+                    selected={false}
+                    onClick={() => {}}
+                  />
+                </div>
+              );
+            })()}
+          </div>
+        ) : null}
+
+        {/* Player name and team/dealer badges */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: layout.textItems,
+            textAlign: layout.textAlign,
+            minWidth: 0,
+          }}
+        >
+          <div style={{ color: "#555", fontSize: 18, lineHeight: 1.15 }}>{label}</div>
+
+          {teamLabel ? (
+            <div style={{ marginTop: 6 }}>
+              <span
+                style={{
+                  fontSize: 12,
+                  padding: "3px 8px",
+                  borderRadius: 8,
+                  border: "1px solid #d9d9d9",
+                  display: "inline-block",
+                  whiteSpace: "nowrap",
+                  lineHeight: 1.2,
+                  background: teamIsA ? "rgba(66, 133, 244, 0.10)" : "rgba(15, 157, 88, 0.10)",
+                  color: teamIsA ? "#2b5fb8" : "#0a7a46",
+                }}
+              >
+                {teamLabel}
+              </span>
+            </div>
+          ) : null}
+
+          {props.isDealer ? (
+            <span
+              style={{
+                fontSize: 12,
+                padding: "3px 8px",
+                marginTop: "3px",
+                borderRadius: 8,
+                border: "1px solid #d9d9d9",
+                display: "inline-block",
+                whiteSpace: "nowrap",
+                lineHeight: 1.2,
+                background: "rgba(0,0,0,0.06)",
+                color: "#333",
+                fontWeight: 700,
+              }}
+            >
+              Dealer
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Claim button — only shown for open seats before the local player has sat down */}
+      {canClaim ? (
+        <button onClick={onClaim} style={{ ...btnStyle, marginTop: 10, width: "100%" }}>
+          Claim
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+// =============================================================================
+// Main Component — Game
+// =============================================================================
+
 export default function Game() {
-  /**
-   * ----------------------------------------------------------
-   * Routing
-   * ----------------------------------------------------------
-   */
+
+  // ---------------------------------------------------------------------------
+  // Routing
+  // ---------------------------------------------------------------------------
+
   const { gameId } = useParams();
 
-  /**
-   * ----------------------------------------------------------
-   * Local UI State
-   * ----------------------------------------------------------
-   */
+  // ---------------------------------------------------------------------------
+  // Local UI State
+  // ---------------------------------------------------------------------------
+
   const [err, setErr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Index into `displayHand` of the card the player has tapped/selected.
+  // Used during dealer_discard (tap to select, then confirm) and as a
+  // fallback selection state in other phases.
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
 
-  // ----------------------------------------------------------
-  // Player Name Gate (required before joining via share link)
-  // ----------------------------------------------------------
-  // `savedName` is what we consider "confirmed" (stored in localStorage).
-  // `nameDraft` is what the user is currently typing in the input.
+  // Name gate: players must enter a display name before joining or acting.
+  // `savedName` is the confirmed value (persisted in localStorage).
+  // `nameDraft` tracks live input before the player clicks Continue.
   const [savedName, setSavedName] = useState<string>(() => (localStorage.getItem("playerName") || "").trim());
   const [nameDraft, setNameDraft] = useState<string>(() => (localStorage.getItem("playerName") || "").trim());
 
@@ -315,90 +511,82 @@ export default function Game() {
     setErr(null);
   }
 
-  /**
-   * ----------------------------------------------------------
-   * Auth + Firestore State
-   * ----------------------------------------------------------
-   */
+  // ---------------------------------------------------------------------------
+  // Auth & Firestore State
+  // ---------------------------------------------------------------------------
+
   const [uid, setUid] = useState<string | null>(null);
   const [game, setGame] = useState<GameDoc | null>(null);
+
+  // All player docs in this game, keyed by uid (names, seats, etc.).
   const [players, setPlayers] = useState<Record<string, PlayerDoc>>({});
+
+  // The local player's private hand (fetched from their own player doc).
   const [myHand, setMyHand] = useState<CardCode[]>([]);
 
-  /**
-   * ----------------------------------------------------------
-   * Firestore References
-   * ----------------------------------------------------------
-   */
+  // ---------------------------------------------------------------------------
+  // Firestore References
+  // ---------------------------------------------------------------------------
+
   const gameRef = useMemo(() => (gameId ? doc(db, "games", gameId) : null), [gameId]);
 
-  /**
-   * ----------------------------------------------------------
-   * Derived Values (REAL seats)
-   * ----------------------------------------------------------
-   */
+  // ---------------------------------------------------------------------------
+  // Derived Values — Real Seats
+  // ---------------------------------------------------------------------------
 
   const scoreNS = game?.score?.NS ?? 0;
   const scoreEW = game?.score?.EW ?? 0;
 
+  const winnerTeam = game?.winnerTeam ?? null;
+  const winnerLabel =
+    winnerTeam === "NS" ? "Team A" : winnerTeam === "EW" ? "Team B" : null;
 
-  const winnerTeam = game?.winnerTeam ?? null; // "NS" | "EW" | null
-const winnerLabel =
-  winnerTeam === "NS" ? "Team A" : winnerTeam === "EW" ? "Team B" : null;
-
+  // The real seat occupied by the local player, or null if they haven't sat down.
   const mySeat: Seat | null =
-  uid && game
-  ? ((Object.entries(game.seats).find(([, v]) => v === uid)?.[0] as Seat | undefined) ?? null)
-  : null;
+    uid && game
+      ? ((Object.entries(game.seats).find(([, v]) => v === uid)?.[0] as Seat | undefined) ?? null)
+      : null;
 
   const isGameFinished = game?.status === "finished";
+
+  // The local player can deal if they are seated at the dealer position and all seats are full.
   const canDeal =
-  !!game &&
-  !isGameFinished &&
-  game.status === "lobby" &&
-  (game.phase === "lobby" || !game.phase) &&
-  hasName &&
-  !!mySeat &&
-  mySeat === (game.dealer ?? "N");
+    !!game &&
+    !isGameFinished &&
+    game.status === "lobby" &&
+    (game.phase === "lobby" || !game.phase) &&
+    hasName &&
+    !!mySeat &&
+    mySeat === (game.dealer ?? "N");
 
   const isMyTurn = !!uid && !!game && !!mySeat && game.turn === mySeat;
 
+  // Team labels are consistent for all players: Team A = NS, Team B = EW.
+  // `myTeam` is derived from the local player's real seat.
   const teamUi = useMemo(() => {
-    // Internally we track NS vs EW (real seats). Keep Team A/B consistent for ALL players:
-    //   Team A = NS (North/South)
-    //   Team B = EW (East/West)
-    // Your *personal* team is derived from your REAL seat, but the labels do not flip per viewer.
     const aTeam: TeamKey = "NS";
     const bTeam: TeamKey = "EW";
-
-    const labelForTeam: Record<TeamKey, string> = {
-      NS: "Team A",
-      EW: "Team B",
-    };
-
+    const labelForTeam: Record<TeamKey, string> = { NS: "Team A", EW: "Team B" };
     const myTeam: TeamKey | null = mySeat ? teamKeyForSeat(mySeat) : null;
-
     return { aTeam, bTeam, labelForTeam, myTeam };
   }, [mySeat]);
 
-
   const url = typeof window !== "undefined" ? window.location.href : "";
 
+  // The suit of the upcard, used to restrict trump choices in bidding round 2.
   const upcardSuit: Suit | null = game?.upcard ? suitCharFromCard(game.upcard) : null;
   const round2AllowedSuits: Suit[] = upcardSuit ? SUITS.filter((s) => s !== upcardSuit) : SUITS;
 
+  // True when all three non-dealer players have passed in round 2, forcing the dealer to call trump.
   const isDealerStuck: boolean =
-  !!game &&
-  game.phase === "bidding_round_2" &&
-  game.bidding?.round === 2 &&
-  (game.bidding?.passes?.length ?? 0) === 3 &&
-  game.turn === game.dealer;
+    !!game &&
+    game.phase === "bidding_round_2" &&
+    game.bidding?.round === 2 &&
+    (game.bidding?.passes?.length ?? 0) === 3 &&
+    game.turn === game.dealer;
 
-  /**
-   * Dealer pickup/discard visual:
-   * During dealer_discard, the dealer temporarily sees a 6-card hand (their 5 + upcard).
-   * Everyone else just sees their normal hand.
-   */
+  // During dealer_discard, the dealer temporarily sees 6 cards (their 5 + the upcard).
+  // All other players see only their normal 5-card hand.
   const displayHand: CardCode[] = useMemo(() => {
     if (game?.phase === "dealer_discard" && mySeat === game.dealer && game.upcard) {
       return [...myHand, game.upcard];
@@ -406,12 +594,11 @@ const winnerLabel =
     return myHand;
   }, [game?.phase, game?.dealer, game?.upcard, mySeat, myHand]);
 
+  // ---------------------------------------------------------------------------
+  // Derived Values — Display Seats
+  // ---------------------------------------------------------------------------
+  // These convert real seats to display seats for rendering only.
 
-  /**
-   * ----------------------------------------------------------
-   * Derived Values (DISPLAY seats)
-   * ----------------------------------------------------------
-   */
   const displaySeat = (real: Seat): Seat => {
     if (!mySeat) return real;
     return realToDisplaySeat(real, mySeat);
@@ -419,13 +606,11 @@ const winnerLabel =
 
   const displayDealer: Seat | null = game?.dealer ? displaySeat(game.dealer) : null;
   const displayTurn: Seat | null = game?.turn ? displaySeat(game.turn) : null;
-
   const displayPasses: Seat[] = (game?.bidding?.passes ?? []).map((s) => displaySeat(s as Seat));
 
-  // Map DISPLAY -> REAL for seat cards
+  // Maps each display position back to the real seat it represents for the local player.
   const displaySeats: Record<Seat, Seat> = useMemo(() => {
     if (!mySeat) return { N: "N", E: "E", S: "S", W: "W" };
-
     const m: Record<Seat, Seat> = { N: "N", E: "E", S: "S", W: "W" };
     (SEATS as Seat[]).forEach((real) => {
       const disp = realToDisplaySeat(real, mySeat);
@@ -434,11 +619,13 @@ const winnerLabel =
     return m;
   }, [mySeat]);
 
+  // Display name of the player whose turn it currently is.
   const turnName =
-  game?.turn && game.seats[game.turn]
-  ? players[game.seats[game.turn] as string]?.name || (displayTurn ?? game.turn)
-  : displayTurn ?? game?.turn;
+    game?.turn && game.seats[game.turn]
+      ? players[game.seats[game.turn] as string]?.name || (displayTurn ?? game.turn)
+      : displayTurn ?? game?.turn;
 
+  // Returns the display name for a real seat, or "Open" if unoccupied.
   const seatLabel = (realSeat: Seat) => {
     if (!game) return "Open";
     const seatUid = game.seats[realSeat];
@@ -446,8 +633,9 @@ const winnerLabel =
     return players[seatUid]?.name || "Taken";
   };
 
+  // Determines which cards in the local player's hand are legally playable.
+  // If `playableSet` is null, all cards are playable (e.g. when leading a trick).
   const playableInfo = useMemo(() => {
-  // Default: everything clickable unless it’s your playing turn.
     if (!game || game.phase !== "playing" || !isMyTurn || !mySeat || !game.trump) {
       return { mustFollow: null as Suit | null, playableSet: null as Set<CardCode> | null };
     }
@@ -458,18 +646,19 @@ const winnerLabel =
     const trickStarted = Object.keys(cards).length > 0;
     const leadSuit = trickStarted ? (trick?.leadSuit ?? null) : null;
 
-  // If you’re leading (no lead suit yet), you can play anything.
+    // Leading a trick — any card is legal.
     if (!leadSuit) {
       return { mustFollow: null, playableSet: null };
     }
 
     const mustFollow = hasSuitInHand(myHand, leadSuit, trump) ? leadSuit : null;
 
-  // If you must follow, only those cards are legal. Otherwise all are legal.
+    // Player cannot follow suit — any card is legal.
     if (!mustFollow) {
       return { mustFollow: null, playableSet: null };
     }
 
+    // Player must follow suit — restrict to cards of the lead suit.
     const playable = new Set<CardCode>();
     myHand.forEach((c) => {
       if (effectiveSuit(c, trump) === mustFollow) playable.add(c);
@@ -478,6 +667,11 @@ const winnerLabel =
     return { mustFollow, playableSet: playable };
   }, [game, isMyTurn, mySeat, myHand]);
 
+  // ---------------------------------------------------------------------------
+  // Render Helper — Seat
+  // ---------------------------------------------------------------------------
+  // Renders a SeatCard at the given display position with the correct grid placement.
+
   const renderSeat = (displayPos: Seat, gridColumn: string, gridRow: string) => {
     if (!game) return null;
     const realSeat = displaySeats[displayPos];
@@ -485,36 +679,34 @@ const winnerLabel =
     return (
       <div style={{ gridColumn, gridRow }}>
         <SeatCard
-            seat={displayPos}
-            label={seatLabel(realSeat)}
-            isYou={mySeat === realSeat}
-            isTurn={game.turn === realSeat}
-            teamLabel={teamUi.labelForTeam[teamKeyForSeat(realSeat)]}
-            isDealer={game.dealer === realSeat}
-            canClaim={!!uid && !game.seats[realSeat] && !mySeat}
-            playedCard={
-              game.phase === "playing" ? (game.currentTrick?.cards?.[realSeat] ?? null) : null
-            }
-            onClaim={() => claimSeat(realSeat)}
-          />
-        </div>
-        );
+          seat={displayPos}
+          label={seatLabel(realSeat)}
+          isYou={mySeat === realSeat}
+          isTurn={game.turn === realSeat}
+          teamLabel={teamUi.labelForTeam[teamKeyForSeat(realSeat)]}
+          isDealer={game.dealer === realSeat}
+          canClaim={!!uid && !game.seats[realSeat] && !mySeat}
+          playedCard={
+            game.phase === "playing" ? (game.currentTrick?.cards?.[realSeat] ?? null) : null
+          }
+          onClaim={() => claimSeat(realSeat)}
+        />
+      </div>
+    );
   };
 
-  /**
-   * ==========================================================
-   * Effects
-   * ==========================================================
-   */
+  // ---------------------------------------------------------------------------
+  // Effects
+  // ---------------------------------------------------------------------------
 
-  // 1) Anonymous auth (persists per browser profile)
+  // 1) Establish anonymous Firebase auth (persists per browser profile).
   useEffect(() => {
     ensureAnonAuth()
-    .then((u) => setUid(u.uid))
-    .catch((e) => setErr(String(e)));
+      .then((u) => setUid(u.uid))
+      .catch((e) => setErr(String(e)));
   }, []);
 
-  // 2) Game doc subscription (shared public state)
+  // 2) Subscribe to the shared game document for real-time state updates.
   useEffect(() => {
     if (!gameRef) return;
 
@@ -530,12 +722,12 @@ const winnerLabel =
         setGame(snap.data() as GameDoc);
       },
       (e) => setErr(String(e))
-      );
+    );
 
     return () => unsub();
   }, [gameRef]);
 
-  // 3) Players subcollection subscription (names/seat metadata)
+  // 3) Subscribe to the players subcollection for display names and seat assignments.
   useEffect(() => {
     if (!gameId) return;
 
@@ -549,12 +741,13 @@ const winnerLabel =
         setPlayers(p);
       },
       (e) => setErr(String(e))
-      );
+    );
 
     return () => unsub();
   }, [gameId]);
 
-  // 4) My private player doc subscription (only *my* hand)
+  // 4) Subscribe to the local player's private doc to keep their hand in sync.
+  //    Firestore security rules ensure only the owning player can read this doc.
   useEffect(() => {
     if (!gameId || !uid) return;
 
@@ -571,17 +764,16 @@ const winnerLabel =
         setMyHand((data.hand ?? []) as CardCode[]);
       },
       (e) => setErr(String(e))
-      );
+    );
 
     return () => unsub();
   }, [gameId, uid]);
 
-  /**
-   * ==========================================================
-   * Actions
-   * ==========================================================
-   */
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
 
+  // Atomically claims an open seat for the local player.
   async function claimSeat(seat: Seat) {
     if (!gameRef || !uid || !gameId) return;
     if (!hasName) {
@@ -593,7 +785,6 @@ const winnerLabel =
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(gameRef);
         if (!snap.exists()) throw new Error("Game missing");
-
         const data = snap.data() as GameDoc;
 
         if (data.seats[seat]) throw new Error("Seat already taken");
@@ -605,6 +796,7 @@ const winnerLabel =
         });
       });
 
+      // Write the player's name and seat to their player doc.
       await setDoc(
         doc(db, "games", gameId, "players", uid),
         {
@@ -614,33 +806,33 @@ const winnerLabel =
           joinedAt: serverTimestamp(),
         },
         { merge: true }
-        );
+      );
     } catch (e: any) {
       setErr(e?.message ?? String(e));
     }
   }
 
-  const [copied, setCopied] = useState(false);
+  // Copies the share link to the clipboard, with a legacy execCommand fallback.
+  async function copyShareLink(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
 
-async function copyShareLink(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    // Fallback for older browsers / non-secure contexts
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.left = "-9999px";
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand("copy");
-    document.body.removeChild(ta);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
   }
 
-  setCopied(true);
-  window.setTimeout(() => setCopied(false), 1200);
-}
-
+  // Shuffles and deals a new hand, writes player hands to their private docs,
+  // and transitions the game from lobby to bidding_round_1.
   async function startHand() {
     if (!gameId || !uid || !gameRef || !game) return;
 
@@ -657,17 +849,17 @@ async function copyShareLink(text: string) {
 
     if (game.status === "finished" || winner) {
       setErr(
-    `Game over — ${winner ? (winner === "NS" ? "Team A" : "Team B") : "a team"} reached 10.`
-    );
+        `Game over — ${winner ? (winner === "NS" ? "Team A" : "Team B") : "a team"} reached 10.`
+      );
       return;
     }
 
-        const dealer: Seat = (game.dealer ?? "N") as Seat;
+    const dealer: Seat = (game.dealer ?? "N") as Seat;
     const firstToAct: Seat = nextSeat(dealer);
 
     const deck = shuffle(createEuchreDeck());
 
-    // Deal clockwise starting left of dealer
+    // Build the deal order: clockwise starting from the player left of the dealer.
     const order: Seat[] = [];
     let cursor = nextSeat(dealer);
     for (let i = 0; i < 4; i++) {
@@ -675,8 +867,8 @@ async function copyShareLink(text: string) {
       cursor = nextSeat(cursor);
     }
 
+    // Deal 5 cards to each seat, one at a time in clockwise order.
     const hands: Record<Seat, CardCode[]> = { N: [], E: [], S: [], W: [] };
-
     let idx = 0;
     for (let c = 0; c < 5; c++) {
       for (const seat of order) {
@@ -695,12 +887,9 @@ async function copyShareLink(text: string) {
       bidding: { round: 1, passes: [], orderedUpBy: null },
       trump: null,
       makerSeat: null,
-
-      // reset per-hand trick state
       currentTrick: null,
       tricksTaken: { NS: 0, EW: 0 },
       trickWinners: [],
-
       updatedAt: serverTimestamp(),
       dealer,
       turn: firstToAct,
@@ -709,6 +898,7 @@ async function copyShareLink(text: string) {
       handNumber: (game.handNumber ?? 0) + 1,
     });
 
+    // Write each player's hand to their private player doc.
     for (const seat of SEATS as Seat[]) {
       const seatUid = game.seats[seat]!;
       const playerRef = doc(db, "games", gameId, "players", seatUid);
@@ -723,13 +913,14 @@ async function copyShareLink(text: string) {
           updatedAt: serverTimestamp(),
         },
         { merge: true }
-        );
+      );
     }
 
     await batch.commit();
     setErr(null);
   }
 
+  // Records a pass in bidding round 1. Advances to round 2 if all 4 players pass.
   async function bidPassRound1() {
     if (isGameFinished) return;
     if (!gameRef || !game || !mySeat) return;
@@ -748,6 +939,7 @@ async function copyShareLink(text: string) {
       const nextPasses = passes.includes(mySeat) ? passes : [...passes, mySeat];
 
       if (nextPasses.length >= 4) {
+        // All four players passed — advance to round 2.
         tx.update(gameRef, {
           phase: "bidding_round_2",
           bidding: { round: 2, passes: [], orderedUpBy: null },
@@ -765,6 +957,7 @@ async function copyShareLink(text: string) {
     });
   }
 
+  // Orders up the upcard in round 1, making its suit trump and moving to dealer_discard.
   async function bidOrderUp() {
     if (isGameFinished) return;
     if (!gameRef || !game || !mySeat) return;
@@ -794,11 +987,13 @@ async function copyShareLink(text: string) {
           orderedUpBy: mySeat,
         },
         updatedAt: serverTimestamp(),
-        turn: g.dealer, // dealer must pick up + discard
+        turn: g.dealer, // dealer must pick up the upcard and discard
       });
     });
   }
 
+  // Records a pass in bidding round 2.
+  // The dealer cannot pass (screw-the-dealer rule) — enforced client- and server-side.
   async function bidPassRound2() {
     if (isGameFinished) return;
     if (!gameRef || !game || !mySeat) return;
@@ -817,13 +1012,13 @@ async function copyShareLink(text: string) {
 
       if (g.phase !== "bidding_round_2") return;
       if (g.turn !== mySeat) return;
-
-      if (mySeat === g.dealer) return;
+      if (mySeat === g.dealer) return; // double-check inside transaction
 
       const passes = g.bidding?.passes ?? [];
       const nextPasses = passes.includes(mySeat) ? passes : [...passes, mySeat];
 
       if (nextPasses.length >= 3) {
+        // Three non-dealer players have passed — dealer is now stuck and must choose.
         tx.update(gameRef, {
           bidding: { round: 2, passes: nextPasses, orderedUpBy: null },
           updatedAt: serverTimestamp(),
@@ -840,6 +1035,8 @@ async function copyShareLink(text: string) {
     });
   }
 
+  // Calls a trump suit in round 2. The upcard suit is not allowed.
+  // Transitions directly to playing (no dealer discard in round 2).
   async function bidCallTrump(suit: Suit) {
     if (isGameFinished) return;
     if (!gameRef || !game || !mySeat) return;
@@ -849,7 +1046,7 @@ async function copyShareLink(text: string) {
 
     const forbidden = suitCharFromCard(game.upcard);
     if (suit === forbidden) {
-      setErr("You can’t choose the upcard suit in round 2.");
+      setErr("You can't choose the upcard suit in round 2.");
       return;
     }
 
@@ -876,15 +1073,15 @@ async function copyShareLink(text: string) {
           orderedUpBy: null,
         },
         updatedAt: serverTimestamp(),
-        turn: nextSeat(g.dealer), // first lead left of dealer
+        turn: nextSeat(g.dealer), // first lead goes to the player left of the dealer
       });
     });
   }
 
+  // Handles the dealer picking up the upcard and discarding a card from their combined 6-card hand.
   async function dealerPickupAndDiscard(discard: CardCode) {
     if (isGameFinished) return;
     if (!gameRef || !gameId || !game || !uid || !mySeat) return;
-
     if (game.phase !== "dealer_discard") return;
     if (mySeat !== game.dealer) return;
     if (game.turn !== game.dealer) return;
@@ -900,19 +1097,19 @@ async function copyShareLink(text: string) {
         if (g.turn !== g.dealer) return;
         if (!g.upcard) return;
 
-        const dealerUid2 = g.seats[g.dealer];
-        if (!dealerUid2) throw new Error("Dealer missing");
-        const dealerRef2 = doc(db, "games", gameId, "players", dealerUid2);
+        const dealerUid = g.seats[g.dealer];
+        if (!dealerUid) throw new Error("Dealer missing");
+        const dealerRef = doc(db, "games", gameId, "players", dealerUid);
 
-        const playerSnap = await tx.get(dealerRef2);
+        const playerSnap = await tx.get(dealerRef);
         if (!playerSnap.exists()) throw new Error("Dealer player doc missing");
         const p = playerSnap.data() as PlayerDoc;
 
         const hand = (p.hand ?? []) as CardCode[];
         if (hand.length !== 5) throw new Error("Dealer hand not 5 cards");
 
+        // Temporarily combine the dealer's hand with the upcard, then remove the discard.
         const combined: CardCode[] = [...hand, g.upcard];
-
         const discardIdx = combined.indexOf(discard);
         if (discardIdx === -1) throw new Error("Discard card not found");
 
@@ -922,14 +1119,14 @@ async function copyShareLink(text: string) {
 
         const nextKitty = [...(g.kitty ?? []), discard];
 
-        tx.update(dealerRef2, { hand: nextHand, updatedAt: serverTimestamp() });
+        tx.update(dealerRef, { hand: nextHand, updatedAt: serverTimestamp() });
 
         tx.update(gameRef, {
           status: "playing",
           phase: "playing",
           kitty: nextKitty,
           updatedAt: serverTimestamp(),
-          turn: nextSeat(g.dealer), // first lead left of dealer
+          turn: nextSeat(g.dealer), // first lead goes to the player left of the dealer
         });
       });
 
@@ -940,6 +1137,9 @@ async function copyShareLink(text: string) {
     }
   }
 
+  // Plays a card from the local player's hand into the current trick.
+  // Enforces follow-suit rules, resolves the trick winner when all 4 cards are played,
+  // scores the hand after 5 tricks, and transitions the game state accordingly.
   async function playCard(code: CardCode) {
     if (isGameFinished) return;
     if (!gameRef || !gameId || !game || !uid || !mySeat) return;
@@ -974,15 +1174,14 @@ async function copyShareLink(text: string) {
 
         const leadSeat: Seat = isNewTrick ? mySeat : (trick!.leadSeat as Seat);
         const leadSuit: Suit = isNewTrick
-        ? effectiveSuit(code, trump)
-        : (trick!.leadSuit as Suit);
+          ? effectiveSuit(code, trump)
+          : (trick!.leadSuit as Suit);
 
-        // Follow-suit enforcement (only if not leading)
+        // Enforce follow-suit (only applies when not leading).
         if (!isNewTrick) {
           const mustFollow = hasSuitInHand(hand, leadSuit, trump);
-          if (mustFollow) {
-            const eff = effectiveSuit(code, trump);
-            if (eff !== leadSuit) throw new Error("Must follow suit");
+          if (mustFollow && effectiveSuit(code, trump) !== leadSuit) {
+            throw new Error("Must follow suit");
           }
         }
 
@@ -996,63 +1195,53 @@ async function copyShareLink(text: string) {
         const currentTrickNumber = trick?.trickNumber ?? 1;
         const seatsPlayed = Object.keys(nextCards).length;
 
-        // If trick completes, determine winner and start next trick / end hand
         if (seatsPlayed === 4) {
-          const winner = winnerOfTrick(nextCards, leadSeat, trump, leadSuit);
+          // All four players have played — resolve the trick.
+          const trickWinner = winnerOfTrick(nextCards, leadSeat, trump, leadSuit);
 
           const prevTaken = g.tricksTaken ?? { NS: 0, EW: 0 };
-          const winTeam = teamOf(winner);
+          const winTeam = teamOf(trickWinner);
           const nextTaken = {
             NS: prevTaken.NS + (winTeam === "NS" ? 1 : 0),
             EW: prevTaken.EW + (winTeam === "EW" ? 1 : 0),
           };
 
-          const prevWinners = (g.trickWinners ?? []) as Seat[];
-          const nextWinners = [...prevWinners, winner];
+          const nextWinners = [...((g.trickWinners ?? []) as Seat[]), trickWinner];
 
           tx.update(playerRef, { hand: nextHand, updatedAt: serverTimestamp() });
 
-// End of hand after 5 tricks → award points, then reset to lobby
           if (currentTrickNumber >= 5) {
+            // Hand is over — score the hand and return to lobby (or end the game).
             const makerSeat = g.makerSeat as Seat | null;
             const makerTeam: TeamKey | null = makerSeat ? teamKeyForSeat(makerSeat) : null;
             const defenseTeam: TeamKey | null = makerTeam ? otherTeam(makerTeam) : null;
 
-  // Default to existing score (schema already has it)
             const prevScore = g.score ?? { NS: 0, EW: 0 };
             const nextScore = { ...prevScore };
 
             if (makerTeam && defenseTeam) {
               const makerTricks = nextTaken[makerTeam];
-
               if (makerTricks >= 5) {
-                nextScore[makerTeam] += 2;
+                nextScore[makerTeam] += 2; // march
               } else if (makerTricks >= 3) {
-                nextScore[makerTeam] += 1;
+                nextScore[makerTeam] += 1; // made it
               } else {
-      // Euchred
-                nextScore[defenseTeam] += 2;
+                nextScore[defenseTeam] += 2; // euchred
               }
             }
 
-            const winner = winningTeam(nextScore, 10);
-
+            const gameWinner = winningTeam(nextScore, 10);
             const nextDealer: Seat = nextSeat(g.dealer);
+
             tx.update(gameRef, {
               updatedAt: serverTimestamp(),
               tricksTaken: nextTaken,
               trickWinners: nextWinners,
               score: nextScore,
-
-              // ✅ win condition
-              status: winner ? "finished" : "lobby",
-              winnerTeam: winner, // additive
-
-              // advance dealer for the NEXT hand (deal button belongs to this seat)
+              status: gameWinner ? "finished" : "lobby",
+              winnerTeam: gameWinner,
               dealer: nextDealer,
               turn: nextDealer,
-
-              // reset per-hand state
               phase: "lobby",
               currentTrick: null,
               upcard: null,
@@ -1064,26 +1253,24 @@ async function copyShareLink(text: string) {
             return;
           }
 
-          // Next trick (winner leads)
+          // Trick complete but hand continues — winner leads the next trick.
           tx.update(gameRef, {
             updatedAt: serverTimestamp(),
             tricksTaken: nextTaken,
             trickWinners: nextWinners,
             currentTrick: {
               trickNumber: currentTrickNumber + 1,
-              leadSeat: winner,
+              leadSeat: trickWinner,
               leadSuit: null,
               cards: {},
             },
-            turn: winner,
+            turn: trickWinner,
           });
-
           return;
         }
 
-        // Trick not complete yet → next seat (simple clockwise; skips not-yet logic later if needed)
+        // Trick not yet complete — advance to the next player's turn.
         tx.update(playerRef, { hand: nextHand, updatedAt: serverTimestamp() });
-
         tx.update(gameRef, {
           updatedAt: serverTimestamp(),
           currentTrick: {
@@ -1096,25 +1283,25 @@ async function copyShareLink(text: string) {
         });
       });
 
-setErr(null);
-setSelectedCard(null);
-} catch (e: any) {
-  setErr(e?.message ?? String(e));
-}
-}
+      setErr(null);
+      setSelectedCard(null);
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    }
+  }
 
-  /**
-   * ==========================================================
-   * Render
-   * ==========================================================
-   */
-return (
-  <div>
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+
+  return (
+    <div>
+      {/* Name gate — shown until the player enters a display name */}
       {!hasName ? (
         <div style={cardStyle}>
           <h4 style={{ marginTop: 0 }}>Enter your name</h4>
           <div style={{ color: "#555", marginBottom: 10 }}>
-            You’ll need a name before you can join or take actions in this game.
+            You'll need a name before you can join or take actions in this game.
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
@@ -1140,546 +1327,378 @@ return (
           </div>
         </div>
       ) : null}
+
+      {/* Game ID and share link */}
       <div style={{ marginBottom: 12 }}>
         <div>
           <b>Game ID:</b> {gameId}
         </div>
         <div style={{ marginTop: 8 }}>
           <b>Share link:</b>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <a href={url} target="_blank" rel="noreferrer">
-                {url}
-              </a>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <a href={url} target="_blank" rel="noreferrer">
+              {url}
+            </a>
 
-              <button
-                type="button"
-                onClick={() => copyShareLink(url)}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 8,
-                  background: "#d1e7dd",
-                  border: `1px solid #badbcc"}`,
-                  cursor: "pointer",
-                }}
-              >
-                {copied ? "Copied!" : "Copy"}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => copyShareLink(url)}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 8,
+                background: "#d1e7dd",
+                border: `1px solid #badbcc`,
+                cursor: "pointer",
+              }}
+            >
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
         </div>
       </div>
 
       {!game ? (
         <p>Loading…</p>
-        ) : (
+      ) : (
         <>
-          {/* Turn Banner */}
-        <div
-          style={{
-            padding: 12,
-            borderRadius: 12,
-            marginBottom: 12,
-            background: isMyTurn ? "#d1e7dd" : "#f8f9fa",
-            border: `1px solid ${isMyTurn ? "#badbcc" : "#ddd"}`,
-            fontWeight: 600,
-          }}
-        >
-          {game.phase?.startsWith("bidding") ? (
-            isMyTurn ? (
-              <>
-              🟢{" "}
-              {game.phase === "bidding_round_2" &&
-              (game.bidding?.passes?.length ?? 0) === 3 &&
-              mySeat === game.dealer
-              ? "Dealer must choose trump"
-              : "Your turn to bid"}
-              </>
+          {/* Turn banner — highlights whose turn it is and what action is expected */}
+          <div
+            style={{
+              padding: 12,
+              borderRadius: 12,
+              marginBottom: 12,
+              background: isMyTurn ? "#d1e7dd" : "#f8f9fa",
+              border: `1px solid ${isMyTurn ? "#badbcc" : "#ddd"}`,
+              fontWeight: 600,
+            }}
+          >
+            {game.phase?.startsWith("bidding") ? (
+              isMyTurn ? (
+                <>
+                  🟢{" "}
+                  {game.phase === "bidding_round_2" &&
+                  (game.bidding?.passes?.length ?? 0) === 3 &&
+                  mySeat === game.dealer
+                    ? "Dealer must choose trump"
+                    : "Your turn to bid"}
+                </>
               ) : (
-              <>⏳ Waiting for {turnName} to bid…</>
+                <>⏳ Waiting for {turnName} to bid…</>
               )
-              ) : game.phase === "dealer_discard" ? (
+            ) : game.phase === "dealer_discard" ? (
               mySeat === game.dealer ? (
                 <>🟢 Dealer: pick up the upcard and discard</>
-                ) : (
+              ) : (
                 <>⏳ Waiting for dealer ({displayDealer ?? game.dealer}) to discard…</>
-                )
-                ) : game.phase === "playing" ? (
-                isMyTurn ? (
-                  <>🟢 Your turn</>
-                  ) : (
-                  <>⏳ Waiting for {turnName}…</>
-                  )
-                  ) : (
-                  <>Waiting…</>
-                  )}
-                </div>
-
-                {err && <div style={alertStyle}>{err}</div>}
-
-                {game?.status === "finished" && winnerLabel ? (
-                  <div
-                    style={{
-                      marginTop: 10,
-                      marginBottom: 12,
-                      padding: "12px 14px",
-                      borderRadius: 12,
-                      border: "2px solid #111",
-                      background: "#fff",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 0.2 }}>
-                        🏆 {winnerLabel} wins!
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, marginBottom: 12 }}>
-
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "6px 10px",
-                      borderRadius: 999,
-                      border: "1px solid #ddd",
-                      background: "#fafafa",
-                      fontSize: 18,
-                      fontWeight: 800,
-                      lineHeight: 1,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#666" }}>Team A</span>
-                    <span style={{ minWidth: 18, textAlign: "center" }}>{scoreNS}</span>
-                    <span style={{ color: "#bbb", fontWeight: 700 }}>–</span>
-                    <span style={{ minWidth: 18, textAlign: "center" }}>{scoreEW}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#666" }}>Team B</span>
-                  </span>
-                </div>
-
-          {/* Tricks tracker (Team A = NS, Team B = EW) */}
-                {game.phase === "playing" && (
-                  <TrickMeter
-                    aLabel={teamUi.labelForTeam[teamUi.aTeam]}
-                    aCount={game.tricksTaken?.[teamUi.aTeam] ?? 0}
-                    bLabel={teamUi.labelForTeam[teamUi.bTeam]}
-                    bCount={game.tricksTaken?.[teamUi.bTeam] ?? 0}
-                    />
-                    )}
-
-          {/* Seats */}
-                
-        <div>
-          {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
-            <div>
-              <b>Trump:</b> {suitSymbol(game.trump)}
-            </div>
+              )
+            ) : game.phase === "playing" ? (
+              isMyTurn ? (
+                <>🟢 Your turn</>
+              ) : (
+                <>⏳ Waiting for {turnName}…</>
+              )
+            ) : (
+              <>Waiting…</>
             )}
-        </div>
-
-                <div style={tableStyle}>
-                  {renderSeat("N", "2 / 3", "1 / 2")}
-                  {renderSeat("W", "1 / 2", "2 / 3")}
-                  {renderSeat("E", "3 / 4", "2 / 3")}
-                  {renderSeat("S", "2 / 3", "3 / 4")}
-                </div>
-
-          {/* Upcard */}
-
-        <div>
-          {game.upcard && game.phase !== "playing" && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ marginBottom: 10 }}>
-                <b>Upcard:</b>
-              </div>
-              {(() => {
-                const { rank, suit } = parseCard(game.upcard as CardCode);
-                return (
-                  <Card
-                    rank={rankLabel(rank)}
-                    suit={suitSymbol(suit)}
-                    selected={false}
-                    onClick={() => {}}
-                    />
-                    );
-              })()}
-            </div>
-            )}
-        </div>
-
-          {/* Bidding UI (Round 1) */}
-                {game.phase === "bidding_round_1" && (
-                  <div style={{ ...cardStyle, marginTop: 12 }}>
-                    <h4 style={{ marginTop: 0 }}>Bidding (Round 1)</h4>
-
-                    <div style={{ marginBottom: 8 }}>
-                      <b>Current turn:</b> {displayTurn ?? game.turn}
-                      {displayPasses.length > 0 && (
-                        <span style={{ marginLeft: 10, color: "#555" }}>
-                          (passed: {displayPasses.join(", ")})
-                        </span>
-                        )}
-                    </div>
-
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button
-                        onClick={bidOrderUp}
-                        disabled={!mySeat || mySeat !== game.turn}
-                        style={{ ...btnStyle, flex: 1 }}
-                      >
-                        Order Up
-                      </button>
-                      <button
-                        onClick={bidPassRound1}
-                        disabled={!mySeat || mySeat !== game.turn}
-                        style={{ ...btnStyle, flex: 1 }}
-                      >
-                        Pass
-                      </button>
-                    </div>
-                  </div>
-                  )}
-
-          {/* Bidding UI (Round 2) */}
-                {game.phase === "bidding_round_2" && (
-                  <div style={{ ...cardStyle, marginTop: 12 }}>
-                    <h4 style={{ marginTop: 0 }}>Bidding (Round 2)</h4>
-
-                    <div style={{ marginBottom: 8 }}>
-                      <b>Current turn:</b> {displayTurn ?? game.turn}
-                      {isDealerStuck ? (
-                        <span style={{ marginLeft: 8, color: "#b00" }}>
-                          ({displayDealer ?? game.dealer} dealer must choose)
-                        </span>
-                        ) : null}
-
-                      {displayPasses.length > 0 && (
-                        <div style={{ marginTop: 6, color: "#555", fontSize: 13 }}>
-                          Passed: {displayPasses.join(", ")}
-                        </div>
-                        )}
-                    </div>
-
-                    <div style={{ marginBottom: 10, color: "#555" }}>
-                      Choose trump (cannot be the upcard suit
-                        {upcardSuit ? ` ${suitSymbol(upcardSuit)}` : ""}).
-                    </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                      {round2AllowedSuits.map((suit) => (
-                        <button
-                          key={suit}
-                          onClick={() => bidCallTrump(suit)}
-                          disabled={!mySeat || mySeat !== game.turn}
-                          style={{ ...btnStyle, padding: "12px 10px" }}
-                        >
-                          {suitSymbol(suit)}
-                        </button>
-                        ))}
-                    </div>
-
-                    {!isDealerStuck && (
-                      <button
-                        onClick={bidPassRound2}
-                        disabled={!mySeat || mySeat !== game.turn}
-                        style={{ ...btnStyle, width: "100%", marginTop: 10 }}
-                      >
-                        Pass
-                      </button>
-                      )}
-
-                    {isDealerStuck && (
-                      <div style={{ marginTop: 10, fontSize: 13, color: "#b00" }}>
-                        Screw the dealer: you can’t pass here.
-                      </div>
-                      )}
-                  </div>
-                  )}
-
-          {/* Dealer discard */}
-                {game.phase === "dealer_discard" && (
-                  <div style={{ ...cardStyle, marginTop: 12 }}>
-                    <h4 style={{ marginTop: 0 }}>Dealer: Pick up & Discard</h4>
-
-                    <div style={{ marginBottom: 8 }}>
-                      <b>Trump:</b> {game.trump ? suitSymbol(game.trump) : "(unknown)"}
-                    </div>
-
-                    {mySeat === game.dealer ? (
-                      <>
-                      <div style={{ marginBottom: 10, color: "#555" }}>
-                        Select a card to discard.
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          if (selectedCard == null) {
-                            setErr("Select a card to discard.");
-                            return;
-                          }
-                          const code = displayHand[selectedCard];
-                          if (!code) {
-                            setErr("Select a card to discard.");
-                            return;
-                          }
-                          dealerPickupAndDiscard(code);
-                        }}
-                        style={{ ...btnStyle, width: "100%" }}
-                      >
-                        Discard Selected Card
-                      </button>
-                      </>
-                      ) : (
-                      <div style={{ color: "#555" }}>
-                        Waiting for dealer ({displayDealer ?? game.dealer}) to pick up and discard…
-                      </div>
-                      )}
-                    </div>
-                    )}
-
-      {canDeal ? (
-          <button
-            onClick={startHand}
-            style={{ ...btnStyle, width: "100%", marginBottom: 12 }}
-          >
-            Deal
-          </button>
-        ) : null}
-
-          {/* My private hand */}
-                <h4 style={{ marginTop: 0 }}>Your Hand</h4>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    overflowX: "auto",
-    overflowY: "visible",   // 👈 key line
-    paddingTop: 10,         // 👈 gives room for the lift
-    paddingBottom: 8,
-  }}
->
-  {displayHand.map((code, i) => {
-    const { rank, suit } = parseCard(code);
-
-    const isPlayingTurn = game?.phase === "playing" && isMyTurn;
-    const mustFollow = playableInfo.mustFollow;
-    const playableSet = playableInfo.playableSet;
-    const isPlayable =
-    !isPlayingTurn || !playableSet ? true : playableSet.has(code);
-
-    return (
-      <div
-        key={code + i}
-        style={{
-          opacity: isPlayable ? 1 : 0.35,
-          pointerEvents: isPlayable ? "auto" : "none",
-          transition: "opacity 120ms ease",
-        }}
-        title={!isPlayable && mustFollow ? `Must follow ${mustFollow}` : undefined}
-      >
-        <Card
-          rank={rankLabel(rank)}
-          suit={suitSymbol(suit)}
-          selected={selectedCard === i}
-          onClick={() => {
-          // Dealer discard: still uses selection
-            if (game?.phase === "dealer_discard") {
-              setSelectedCard(selectedCard === i ? null : i);
-              return;
-            }
-
-          // Playing: click plays immediately
-            if (game?.phase === "playing" && isMyTurn) {
-              playCard(code);
-              return;
-            }
-
-          // Other phases: selection only
-            setSelectedCard(selectedCard === i ? null : i);
-          }}
-        />
-      </div>
-      );
-  })}
-</div>
-</>
-)}
-</div>
-);
-}
-
-function SeatCard(props: {
-  seat: Seat; // DISPLAY seat label
-  label: string;
-  isYou: boolean;
-  isTurn: boolean;
-  teamLabel?: string;
-  isDealer: boolean;
-  canClaim: boolean;
-  playedCard?: CardCode | null;
-  onClaim: () => void;
-}) {
-  const { seat, label, isTurn, teamLabel, canClaim, playedCard, onClaim } = props;
-
-  // E: card left of text | W: card right of text | N: card below text | S: card above text
-  const layout =
-  seat === "E"
-  ? { dir: "row" as const, textAlign: "left" as const, textItems: "flex-start" as const }
-  : seat === "W"
-  ? { dir: "row-reverse" as const, textAlign: "right" as const, textItems: "flex-end" as const }
-  : seat === "N"
-      ? { dir: "column-reverse" as const, textAlign: "center" as const, textItems: "center" as const } // card below
-      : { dir: "column" as const, textAlign: "center" as const, textItems: "center" as const }; // S card above
-
-      const teamIsA = teamLabel === "Team A";
-
-      return (
-        <div
-          style={{
-            ...cardStyle,
-            borderColor: isTurn ? "#0a7" : "#ddd",
-            boxShadow: isTurn ? "0 0 0 2px rgba(0,170,119,0.15)" : undefined,
-            display: "flex",
-            flexDirection: "column",
-            paddingTop: 6,
-            paddingBottom: 10,
-        minHeight: 130, // smaller than before, keeps boxes consistent
-      }}
-    >
-
-      {/* Main content */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: layout.dir,
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 10,
-          flex: "1 1 auto",
-        }}
-      >
-        {/* Played card */}
-        {playedCard ? (
-          <div style={{ flex: "0 0 auto" }}>
-            {(() => {
-              const { rank, suit } = parseCard(playedCard);
-              return (
-                <div style={{ transform: "scale(0.92)", transformOrigin: "center" }}>
-                  <Card
-                    rank={rankLabel(rank)}
-                    suit={suitSymbol(suit)}
-                    selected={false}
-                    onClick={() => {}}
-                  />
-                </div>
-                );
-            })()}
           </div>
+
+          {err && <div style={alertStyle}>{err}</div>}
+
+          {/* Winner banner — shown when the game has ended */}
+          {game?.status === "finished" && winnerLabel ? (
+            <div
+              style={{
+                marginTop: 10,
+                marginBottom: 12,
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: "2px solid #111",
+                background: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 0.2 }}>
+                  🏆 {winnerLabel} wins!
+                </div>
+              </div>
+            </div>
           ) : null}
 
-        {/* Name + Team */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: layout.textItems,
-            textAlign: layout.textAlign,
-            minWidth: 0,
-          }}
-        >
-          <div style={{ color: "#555", fontSize: 18, lineHeight: 1.15 }}>{label}</div>
+          {/* Score display */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, marginBottom: 12 }}>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "6px 10px",
+                borderRadius: 999,
+                border: "1px solid #ddd",
+                background: "#fafafa",
+                fontSize: 18,
+                fontWeight: 800,
+                lineHeight: 1,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#666" }}>Team A</span>
+              <span style={{ minWidth: 18, textAlign: "center" }}>{scoreNS}</span>
+              <span style={{ color: "#bbb", fontWeight: 700 }}>–</span>
+              <span style={{ minWidth: 18, textAlign: "center" }}>{scoreEW}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#666" }}>Team B</span>
+            </span>
+          </div>
 
-          {teamLabel ? (
-            <div style={{ marginTop: 6 }}>
-              <span
-                style={{
-                  fontSize: 12,
-                  padding: "3px 8px",
-                  borderRadius: 8, // tag, not pill
-                  border: "1px solid #d9d9d9",
-                  display: "inline-block",
-                  whiteSpace: "nowrap", // prevents "Team" / "A" stacking
-                  lineHeight: 1.2,
-                  background: teamIsA ? "rgba(66, 133, 244, 0.10)" : "rgba(15, 157, 88, 0.10)",
-                  color: teamIsA ? "#2b5fb8" : "#0a7a46",
-                }}
-              >
-                {teamLabel}
-              </span>
+          {/* Trick progress tracker (visible during play only) */}
+          {game.phase === "playing" && (
+            <TrickMeter
+              aLabel={teamUi.labelForTeam[teamUi.aTeam]}
+              aCount={game.tricksTaken?.[teamUi.aTeam] ?? 0}
+              bLabel={teamUi.labelForTeam[teamUi.bTeam]}
+              bCount={game.tricksTaken?.[teamUi.bTeam] ?? 0}
+            />
+          )}
+
+          {/* Trump indicator (visible during play and dealer discard) */}
+          <div>
+            {(game.phase === "playing" || game.phase === "dealer_discard") && game.trump && (
+              <div>
+                <b>Trump:</b> {suitSymbol(game.trump)}
+              </div>
+            )}
+          </div>
+
+          {/* Table layout — 3×3 grid with seats at N/S/E/W and center empty */}
+          <div style={tableStyle}>
+            {renderSeat("N", "2 / 3", "1 / 2")}
+            {renderSeat("W", "1 / 2", "2 / 3")}
+            {renderSeat("E", "3 / 4", "2 / 3")}
+            {renderSeat("S", "2 / 3", "3 / 4")}
+          </div>
+
+          {/* Upcard (hidden once play begins) */}
+          <div>
+            {game.upcard && game.phase !== "playing" && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ marginBottom: 10 }}>
+                  <b>Upcard:</b>
+                </div>
+                {(() => {
+                  const { rank, suit } = parseCard(game.upcard as CardCode);
+                  return (
+                    <Card
+                      rank={rankLabel(rank)}
+                      suit={suitSymbol(suit)}
+                      selected={false}
+                      onClick={() => {}}
+                    />
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+
+          {/* Bidding UI — Round 1: order up or pass */}
+          {game.phase === "bidding_round_1" && (
+            <div style={{ ...cardStyle, marginTop: 12 }}>
+              <h4 style={{ marginTop: 0 }}>Bidding (Round 1)</h4>
+
+              <div style={{ marginBottom: 8 }}>
+                <b>Current turn:</b> {displayTurn ?? game.turn}
+                {displayPasses.length > 0 && (
+                  <span style={{ marginLeft: 10, color: "#555" }}>
+                    (passed: {displayPasses.join(", ")})
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  onClick={bidOrderUp}
+                  disabled={!mySeat || mySeat !== game.turn}
+                  style={{ ...btnStyle, flex: 1 }}
+                >
+                  Order Up
+                </button>
+                <button
+                  onClick={bidPassRound1}
+                  disabled={!mySeat || mySeat !== game.turn}
+                  style={{ ...btnStyle, flex: 1 }}
+                >
+                  Pass
+                </button>
+              </div>
             </div>
-            ) : null}
-          {props.isDealer ? (
-  <span
-    style={{
-      fontSize: 12,
-      padding: "3px 8px",
-      marginTop: "3px",
-      borderRadius: 8,
-      border: "1px solid #d9d9d9",
-      display: "inline-block",
-      whiteSpace: "nowrap",
-      lineHeight: 1.2,
-      background: "rgba(0,0,0,0.06)",
-      color: "#333",
-      fontWeight: 700,
-    }}
-  >
-    Dealer
-  </span>
-) : null}
-        </div>
-      </div>
+          )}
 
-      {canClaim ? (
-        <button onClick={onClaim} style={{ ...btnStyle, marginTop: 10, width: "100%" }}>
-          Claim
-        </button>
-        ) : null}
+          {/* Bidding UI — Round 2: call trump or pass (dealer cannot pass) */}
+          {game.phase === "bidding_round_2" && (
+            <div style={{ ...cardStyle, marginTop: 12 }}>
+              <h4 style={{ marginTop: 0 }}>Bidding (Round 2)</h4>
+
+              <div style={{ marginBottom: 8 }}>
+                <b>Current turn:</b> {displayTurn ?? game.turn}
+                {isDealerStuck ? (
+                  <span style={{ marginLeft: 8, color: "#b00" }}>
+                    ({displayDealer ?? game.dealer} dealer must choose)
+                  </span>
+                ) : null}
+
+                {displayPasses.length > 0 && (
+                  <div style={{ marginTop: 6, color: "#555", fontSize: 13 }}>
+                    Passed: {displayPasses.join(", ")}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginBottom: 10, color: "#555" }}>
+                Choose trump (cannot be the upcard suit
+                {upcardSuit ? ` ${suitSymbol(upcardSuit)}` : ""}).
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                {round2AllowedSuits.map((suit) => (
+                  <button
+                    key={suit}
+                    onClick={() => bidCallTrump(suit)}
+                    disabled={!mySeat || mySeat !== game.turn}
+                    style={{ ...btnStyle, padding: "12px 10px" }}
+                  >
+                    {suitSymbol(suit)}
+                  </button>
+                ))}
+              </div>
+
+              {!isDealerStuck && (
+                <button
+                  onClick={bidPassRound2}
+                  disabled={!mySeat || mySeat !== game.turn}
+                  style={{ ...btnStyle, width: "100%", marginTop: 10 }}
+                >
+                  Pass
+                </button>
+              )}
+
+              {isDealerStuck && (
+                <div style={{ marginTop: 10, fontSize: 13, color: "#b00" }}>
+                  Screw the dealer: you can't pass here.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Dealer discard UI — dealer selects a card to discard after picking up the upcard */}
+          {game.phase === "dealer_discard" && (
+            <div style={{ ...cardStyle, marginTop: 12 }}>
+              <h4 style={{ marginTop: 0 }}>Dealer: Pick up & Discard</h4>
+
+              <div style={{ marginBottom: 8 }}>
+                <b>Trump:</b> {game.trump ? suitSymbol(game.trump) : "(unknown)"}
+              </div>
+
+              {mySeat === game.dealer ? (
+                <>
+                  <div style={{ marginBottom: 10, color: "#555" }}>
+                    Select a card to discard.
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      if (selectedCard == null) {
+                        setErr("Select a card to discard.");
+                        return;
+                      }
+                      const code = displayHand[selectedCard];
+                      if (!code) {
+                        setErr("Select a card to discard.");
+                        return;
+                      }
+                      dealerPickupAndDiscard(code);
+                    }}
+                    style={{ ...btnStyle, width: "100%" }}
+                  >
+                    Discard Selected Card
+                  </button>
+                </>
+              ) : (
+                <div style={{ color: "#555" }}>
+                  Waiting for dealer ({displayDealer ?? game.dealer}) to pick up and discard…
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Deal button — only visible to the dealer when in the lobby phase */}
+          {canDeal ? (
+            <button
+              onClick={startHand}
+              style={{ ...btnStyle, width: "100%", marginBottom: 12 }}
+            >
+              Deal
+            </button>
+          ) : null}
+
+          {/* Local player's hand */}
+          <h4 style={{ marginTop: 0 }}>Your Hand</h4>
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              overflowX: "auto",
+              overflowY: "visible", // allows cards to lift upward when selected
+              paddingTop: 10,
+              paddingBottom: 8,
+            }}
+          >
+            {displayHand.map((code, i) => {
+              const { rank, suit } = parseCard(code);
+
+              const isPlayingTurn = game?.phase === "playing" && isMyTurn;
+              const { mustFollow, playableSet } = playableInfo;
+              const isPlayable = !isPlayingTurn || !playableSet ? true : playableSet.has(code);
+
+              return (
+                <div
+                  key={code + i}
+                  style={{
+                    opacity: isPlayable ? 1 : 0.35,
+                    pointerEvents: isPlayable ? "auto" : "none",
+                    transition: "opacity 120ms ease",
+                  }}
+                  title={!isPlayable && mustFollow ? `Must follow ${mustFollow}` : undefined}
+                >
+                  <Card
+                    rank={rankLabel(rank)}
+                    suit={suitSymbol(suit)}
+                    selected={selectedCard === i}
+                    onClick={() => {
+                      if (game?.phase === "dealer_discard") {
+                        // Tap to select; tap again to deselect
+                        setSelectedCard(selectedCard === i ? null : i);
+                        return;
+                      }
+
+                      if (game?.phase === "playing" && isMyTurn) {
+                        // Tap to play immediately
+                        playCard(code);
+                        return;
+                      }
+
+                      // Other phases: selection only (no immediate action)
+                      setSelectedCard(selectedCard === i ? null : i);
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
-    );
-    }
-
-/**
- * ==========================================================
- * Styles
- * ==========================================================
- */
-
-    const alertStyle: React.CSSProperties = {
-      padding: 12,
-      background: "#fff3cd",
-      border: "1px solid #ffecb5",
-      borderRadius: 10,
-      marginBottom: 12,
-    };
-
-    const cardStyle: React.CSSProperties = {
-      padding: 12,
-      border: "1px solid #ddd",
-      borderRadius: 12,
-      background: "white",
-      marginBottom: 12,
-    };
-
-    const btnStyle: React.CSSProperties = {
-      padding: "10px 14px",
-      borderRadius: 10,
-      border: "1px solid #ccc",
-      background: "white",
-      cursor: "pointer",
-    };
-
-    const tableStyle: React.CSSProperties = {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr 1fr",
-      gridTemplateRows: "auto auto auto",
-      gap: 10,
-      alignItems: "stretch",
-      justifyItems: "stretch",
-    };
+  );
+}
