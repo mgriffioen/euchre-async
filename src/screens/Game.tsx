@@ -1428,8 +1428,8 @@ export default function Game() {
               style={{
                 padding: "6px 10px",
                 borderRadius: 8,
-                background: "#d1e7dd",
-                border: `1px solid #badbcc`,
+                border: "1px solid #ccc",
+                background: "white",
                 cursor: "pointer",
               }}
             >
