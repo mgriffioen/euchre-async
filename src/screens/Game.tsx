@@ -1433,7 +1433,7 @@ export default function Game() {
                 cursor: "pointer",
               }}
             >
-              {copied ? "Copied!" : "Copy"}
+              {copied ? "Copied!" : "Copy share link"}
             </button>
           </div>
         </div>
