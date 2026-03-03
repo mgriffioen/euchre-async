@@ -1420,12 +1420,8 @@ export default function Game() {
           <b>Game ID:</b> {gameId}
         </div>
         <div style={{ marginTop: 8 }}>
-          <b>Share link:</b>
+          
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <a href={url} target="_blank" rel="noreferrer">
-              {url}
-            </a>
-
             <button
               type="button"
               onClick={() => copyShareLink(url)}
