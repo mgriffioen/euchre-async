@@ -1495,7 +1495,11 @@ export default function Game() {
         </div>
       </div>
 
-      <CardThemePicker />
+      <CardThemePicker
+              style={{
+                padding: "6px 0px",
+              }}
+            />
 
       {!game ? (
         <p>Loading…</p>
