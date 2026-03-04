@@ -18,6 +18,7 @@ import { parseCard, rankLabel, suitSymbol } from "../lib/cards";
 import type { CardCode } from "../lib/cards";
 import { createEuchreDeck, shuffle } from "../lib/deal";
 import CardThemePicker from "../components/CardThemePicker";
+import { useCardTheme } from "../components/CardThemeContext";
 
 // =============================================================================
 // Types & Constants
@@ -228,6 +229,81 @@ const DARK_MODE_CSS = `
   .g-dot.filled {
     background: #333;
     border-color: #333;
+  }
+
+  /* Trump indicator */
+  .g-trump {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px 6px 10px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    background: white;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.10);
+    color: #111;
+    transition: all 0.15s ease;
+  }
+  .g-trump-suit {
+    font-size: 26px;
+    line-height: 1;
+  }
+  .g-trump-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.55;
+  }
+  .g-trump.theme-eightbit {
+    background: #0d0d0d;
+    border: 3px solid #00ff41;
+    border-radius: 0;
+    box-shadow: 3px 3px 0 #00ff41;
+    font-family: "Courier New", Courier, monospace;
+    color: #00ff41;
+  }
+  .g-trump.theme-eightbit .g-trump-suit {
+    text-shadow: 0 0 8px currentColor;
+  }
+  .g-trump.theme-eightbit .g-trump-label {
+    opacity: 0.7;
+    letter-spacing: 0.12em;
+  }
+  .g-trump.theme-oldwest {
+    background: linear-gradient(145deg, #f5e6c8 0%, #e8d49a 100%);
+    border: 2px solid #8b5c2a;
+    border-radius: 4px;
+    box-shadow: 2px 3px 8px rgba(92,46,0,0.35);
+    font-family: "Palatino Linotype", Palatino, "Book Antiqua", serif;
+    color: #1a0a00;
+  }
+  .g-trump.theme-oldwest .g-trump-label {
+    opacity: 0.6;
+    letter-spacing: 0.1em;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .g-trump {
+      background: #1e1e1e;
+      border-color: #444;
+      color: #eee;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+    .g-trump.theme-eightbit {
+      background: #0d0d0d;
+      border-color: #00ff41;
+      color: #00ff41;
+      box-shadow: 3px 3px 0 #00ff41;
+    }
+    .g-trump.theme-oldwest {
+      background: linear-gradient(145deg, #f5e6c8 0%, #e8d49a 100%);
+      border-color: #8b5c2a;
+      color: #1a0a00;
+    }
   }
 
   @media (prefers-color-scheme: dark) {
@@ -669,6 +745,31 @@ function SeatCard(props: {
           Claim
         </button>
       ) : null}
+    </div>
+  );
+}
+
+// =============================================================================
+// Trump Indicator
+// =============================================================================
+
+function TrumpIndicator({ suit }: { suit: string }) {
+  const { theme } = useCardTheme();
+  const isRed = suit === "\u2665" || suit === "\u2666";
+
+  const suitColor =
+    theme === "eightbit"
+      ? isRed ? "#ff2a6d" : "#00ff41"
+      : theme === "oldwest"
+      ? isRed ? "#8b1a1a" : "#1a0a00"
+      : isRed ? "#d22" : "#111";
+
+  return (
+    <div className={`g-trump theme-${theme}`}>
+      <div className="g-trump-label">Trump</div>
+      <span className="g-trump-suit" style={{ color: suitColor }}>
+        {suit}
+      </span>
     </div>
   );
 }
@@ -1740,13 +1841,9 @@ export default function Game() {
           )}
 
           {/* Trump indicator (visible during play, dealer discard, and trick review) */}
-          <div>
-            {(game.phase === "playing" || game.phase === "dealer_discard" || game.phase === "trick_complete") && game.trump && (
-              <div>
-                <b>Trump:</b> {suitSymbol(game.trump)}
-              </div>
-            )}
-          </div>
+          {(game.phase === "playing" || game.phase === "dealer_discard" || game.phase === "trick_complete") && game.trump && (
+            <TrumpIndicator suit={suitSymbol(game.trump)} />
+          )}
 
           {/* Table layout — 3×3 grid with seats at N/S/E/W and center empty */}
           <div style={tableStyle}>
@@ -1892,9 +1989,11 @@ export default function Game() {
             <div className="g-card" style={{ marginTop: 12 }}>
               <h4 style={{ marginTop: 0 }}>Dealer: Pick up & Discard</h4>
 
-              <div style={{ marginBottom: 8 }}>
-                <b>Trump:</b> {game.trump ? suitSymbol(game.trump) : "(unknown)"}
-              </div>
+              {game.trump && (
+                <div style={{ marginBottom: 8 }}>
+                  <TrumpIndicator suit={suitSymbol(game.trump)} />
+                </div>
+              )}
 
               {mySeat === game.dealer ? (
                 <>
