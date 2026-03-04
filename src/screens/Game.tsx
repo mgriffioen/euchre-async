@@ -626,9 +626,6 @@ export default function Game() {
   const goingAlone = game?.goingAlone ?? false;
   const partnerSeatReal: Seat | null = (game?.partnerSeat as Seat | null) ?? null;
 
-  // Display-seat version of the partner seat (for UI labels).
-  const partnerDisplaySeat: Seat | null = partnerSeatReal ? displaySeat(partnerSeatReal) : null;
-
   // During dealer_discard, the dealer temporarily sees 6 cards (their 5 + the upcard).
   // All other players see only their normal 5-card hand.
   const displayHand: CardCode[] = useMemo(() => {
@@ -1526,23 +1523,23 @@ export default function Game() {
                 <>⏳ Waiting for {turnName} to bid…</>
               )
             ) : game.phase === "dealer_discard" ? (
-              mySeat === game.dealer ? (
+              goingAlone && mySeat === partnerSeatReal ? (
+                <>🪑 Your partner is going alone — you're sitting out this hand</>
+              ) : mySeat === game.dealer ? (
                 <>🟢 Dealer: pick up the upcard and discard</>
               ) : (
                 <>⏳ Waiting for dealer ({displayDealer ?? game.dealer}) to discard…</>
               )
-            ) : game.phase === "dealer_discard" && goingAlone && mySeat === partnerSeatReal ? (
-              <>🪑 Your partner is going alone — you're sitting out this hand</>
             ) : game.phase === "trick_complete" ? (
               isMyTurn ? (
                 <>🟢 You won the trick — continue when ready</>
               ) : (
                 <>⏳ Waiting for {turnName} to continue…</>
               )
-            ) : game.phase === "playing" && goingAlone && mySeat === partnerSeatReal ? (
-              <>🪑 Your partner is going alone — you're sitting out this hand</>
             ) : game.phase === "playing" ? (
-              isMyTurn ? (
+              goingAlone && mySeat === partnerSeatReal ? (
+                <>🪑 Your partner is going alone — you're sitting out this hand</>
+              ) : isMyTurn ? (
                 <>🟢 Your turn</>
               ) : (
                 <>⏳ Waiting for {turnName}…</>
