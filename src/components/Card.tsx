@@ -1,3 +1,5 @@
+import { useCardTheme, type CardTheme } from "./CardThemeContext";
+
 type Props = {
   rank: string;
   suit: "♠" | "♥" | "♦" | "♣";
@@ -5,34 +7,223 @@ type Props = {
   onClick?: () => void;
 };
 
-export default function Card({ rank, suit, selected, onClick }: Props) {
+// =============================================================================
+// Theme Definitions
+// =============================================================================
+
+type ThemeStyles = {
+  card: React.CSSProperties;
+  cardSelected: React.CSSProperties;
+  redColor: string;
+  blackColor: string;
+  suitStyle?: React.CSSProperties;
+  rankStyle?: React.CSSProperties;
+  overlay?: React.ReactNode;
+};
+
+function getThemeStyles(theme: CardTheme, isRed: boolean, selected: boolean): ThemeStyles {
+  if (theme === "eightbit") {
+    return {
+      card: {
+        width: 70,
+        height: 100,
+        borderRadius: 0,
+        border: "3px solid #00ff41",
+        background: "#0d0d0d",
+        boxShadow: selected
+          ? "0 0 0 2px #0d0d0d, 0 0 0 4px #00ff41, 0 0 16px #00ff41"
+          : "3px 3px 0 #00ff41",
+        cursor: "pointer",
+        transform: selected ? "translateY(-8px)" : "none",
+        transition: "all 0.1s steps(2)",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: 6,
+        fontFamily: '"Courier New", Courier, monospace',
+        imageRendering: "pixelated",
+        position: "relative",
+        overflow: "hidden",
+      },
+      cardSelected: {},
+      redColor: "#ff2a6d",
+      blackColor: "#00ff41",
+      rankStyle: {
+        fontSize: 18,
+        fontWeight: 900,
+        letterSpacing: -1,
+        lineHeight: 1,
+        textShadow: isRed ? "0 0 6px #ff2a6d" : "0 0 6px #00ff41",
+      },
+      suitStyle: {
+        alignSelf: "center",
+        fontSize: 26,
+        textShadow: isRed ? "0 0 8px #ff2a6d" : "0 0 8px #00ff41",
+      },
+      overlay: (
+        <>
+          {/* CRT scanlines */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              pointerEvents: "none",
+              backgroundImage:
+                "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.35) 3px, rgba(0,0,0,0.35) 4px)",
+              zIndex: 1,
+            }}
+          />
+          {/* Corner pixel dots */}
+          <div style={{ position: "absolute", top: 2, right: 2, width: 4, height: 4, background: "#00ff41", opacity: 0.5, zIndex: 2 }} />
+          <div style={{ position: "absolute", bottom: 2, left: 2, width: 4, height: 4, background: "#00ff41", opacity: 0.5, zIndex: 2 }} />
+        </>
+      ),
+    };
+  }
+
+  if (theme === "oldwest") {
+    return {
+      card: {
+        width: 70,
+        height: 100,
+        borderRadius: 4,
+        border: selected ? "2px solid #5c2e00" : "2px solid #8b5c2a",
+        background: "linear-gradient(145deg, #f5e6c8 0%, #ede0b0 40%, #e8d49a 100%)",
+        boxShadow: selected
+          ? "0 6px 18px rgba(92,46,0,0.55), inset 0 0 12px rgba(139,92,42,0.25)"
+          : "2px 3px 8px rgba(92,46,0,0.35), inset 0 0 8px rgba(139,92,42,0.15)",
+        cursor: "pointer",
+        transform: selected ? "translateY(-8px) rotate(0.5deg)" : "none",
+        transition: "all 0.15s ease",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: 7,
+        fontFamily: '"Palatino Linotype", Palatino, "Book Antiqua", serif',
+        position: "relative",
+        overflow: "hidden",
+      },
+      cardSelected: {},
+      redColor: "#8b1a1a",
+      blackColor: "#1a0a00",
+      rankStyle: {
+        fontSize: 20,
+        fontWeight: 700,
+        lineHeight: 1,
+        letterSpacing: 0.5,
+      },
+      suitStyle: {
+        alignSelf: "center",
+        fontSize: 26,
+      },
+      overlay: (
+        <>
+          {/* Aged paper texture vignette */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              pointerEvents: "none",
+              background:
+                "radial-gradient(ellipse at center, transparent 55%, rgba(92,46,0,0.18) 100%)",
+              zIndex: 1,
+            }}
+          />
+          {/* Worn edge top */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 3,
+              background:
+                "repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(92,46,0,0.12) 3px, rgba(92,46,0,0.12) 5px)",
+              zIndex: 2,
+            }}
+          />
+          {/* Corner flourish dots */}
+          <div style={{ position: "absolute", top: 3, left: 3, width: 3, height: 3, borderRadius: "50%", background: "rgba(92,46,0,0.3)", zIndex: 2 }} />
+          <div style={{ position: "absolute", top: 3, right: 3, width: 3, height: 3, borderRadius: "50%", background: "rgba(92,46,0,0.3)", zIndex: 2 }} />
+          <div style={{ position: "absolute", bottom: 3, left: 3, width: 3, height: 3, borderRadius: "50%", background: "rgba(92,46,0,0.3)", zIndex: 2 }} />
+          <div style={{ position: "absolute", bottom: 3, right: 3, width: 3, height: 3, borderRadius: "50%", background: "rgba(92,46,0,0.3)", zIndex: 2 }} />
+        </>
+      ),
+    };
+  }
+
+  // Classic (default)
+  return {
+    card: {
+      width: 70,
+      height: 100,
+      borderRadius: 10,
+      border: selected ? "3px solid #0a7" : "1px solid #ccc",
+      background: "white",
+      boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+      cursor: "pointer",
+      transform: selected ? "translateY(-8px)" : "none",
+      transition: "all 0.15s ease",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-between",
+      padding: 8,
+    },
+    cardSelected: {},
+    redColor: "#d22",
+    blackColor: "#111",
+    rankStyle: {
+      fontSize: 24,
+      fontWeight: "bold",
+      lineHeight: 1,
+    },
+    suitStyle: {
+      alignSelf: "center",
+      fontSize: 28,
+    },
+  };
+}
+
+// =============================================================================
+// Card Component
+// =============================================================================
+
+export default function Card({ rank, suit, selected = false, onClick }: Props) {
+  const { theme } = useCardTheme();
   const isRed = suit === "♥" || suit === "♦";
+  const ts = getThemeStyles(theme, isRed, selected);
+  const color = isRed ? ts.redColor : ts.blackColor;
 
   return (
     <button
       onClick={onClick}
       style={{
-        width: 70,
-        height: 100,
-        borderRadius: 10,
-        border: selected ? "3px solid #0a7" : "1px solid #ccc",
-        background: "white",
-        color: isRed ? "#d22" : "#111",
-        fontSize: 24,
-        fontWeight: "bold",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        padding: 8,
-        boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-        cursor: "pointer",
-        transform: selected ? "translateY(-8px)" : "none",
-        transition: "all 0.15s ease",
+        ...ts.card,
+        color,
+        // Reset browser button defaults
+        fontFamily: ts.card.fontFamily ?? "inherit",
       }}
     >
-      <span>{rank}</span>
-      <span style={{ alignSelf: "center", fontSize: 28 }}>{suit}</span>
-      <span style={{ alignSelf: "flex-end" }}>{rank}</span>
+      {ts.overlay}
+
+      <span style={{ position: "relative", zIndex: 3, ...ts.rankStyle }}>
+        {rank}
+      </span>
+
+      <span style={{ position: "relative", zIndex: 3, ...ts.suitStyle }}>
+        {suit}
+      </span>
+
+      <span
+        style={{
+          position: "relative",
+          zIndex: 3,
+          alignSelf: "flex-end",
+          ...ts.rankStyle,
+        }}
+      >
+        {rank}
+      </span>
     </button>
   );
 }

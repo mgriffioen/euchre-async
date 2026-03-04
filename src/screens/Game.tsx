@@ -17,6 +17,7 @@ import Card from "../components/Card";
 import { parseCard, rankLabel, suitSymbol } from "../lib/cards";
 import type { CardCode } from "../lib/cards";
 import { createEuchreDeck, shuffle } from "../lib/deal";
+import CardThemePicker from "../components/CardThemePicker";
 
 // =============================================================================
 // Types & Constants
@@ -1493,6 +1494,8 @@ export default function Game() {
           </div>
         </div>
       </div>
+
+      <CardThemePicker />
 
       {!game ? (
         <p>Loading…</p>
