@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   collection,
@@ -68,6 +68,10 @@ type GameDoc = {
 
   tricksTaken?: { NS: number; EW: number } | null;
   trickWinners?: Seat[] | null;
+
+  // Going alone: maker plays without their partner.
+  goingAlone?: boolean | null;
+  partnerSeat?: Seat | null; // the seat sitting out; null if not going alone
 
   winnerTeam?: TeamKey | null;
 };
@@ -142,6 +146,14 @@ function otherTeam(team: TeamKey): TeamKey {
   return team === "NS" ? "EW" : "NS";
 }
 
+
+// Returns the seat directly across the table (the partner seat).
+function partnerOf(seat: Seat): Seat {
+  if (seat === "N") return "S";
+  if (seat === "S") return "N";
+  if (seat === "E") return "W";
+  return "E"; // W
+}
 // Returns the winning team if either team has reached the target score, or null if the game is ongoing.
 function winningTeam(score: { NS: number; EW: number }, target = 10): TeamKey | null {
   if (score.NS >= target) return "NS";
@@ -347,6 +359,7 @@ function SeatCard(props: {
   isTurn: boolean;
   teamLabel?: string;
   isDealer: boolean;
+  isSittingOut?: boolean; // true when this player is sitting out a going-alone hand
   canClaim: boolean;
   playedCard?: CardCode | null;
   onClaim: () => void;
@@ -460,6 +473,26 @@ function SeatCard(props: {
               Dealer
             </span>
           ) : null}
+
+          {props.isSittingOut ? (
+            <span
+              style={{
+                fontSize: 12,
+                padding: "3px 8px",
+                marginTop: "3px",
+                borderRadius: 8,
+                border: "1px solid #f5c6cb",
+                display: "inline-block",
+                whiteSpace: "nowrap",
+                lineHeight: 1.2,
+                background: "rgba(220,53,69,0.08)",
+                color: "#842029",
+                fontWeight: 600,
+              }}
+            >
+              Sitting out
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -491,6 +524,7 @@ export default function Game() {
 
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [goAloneIntent, setGoAloneIntent] = useState(false);
 
   // Index into `displayHand` of the card the player has tapped/selected.
   // Used during dealer_discard (tap to select, then confirm) and as a
@@ -587,6 +621,13 @@ export default function Game() {
     game.bidding?.round === 2 &&
     (game.bidding?.passes?.length ?? 0) === 3 &&
     game.turn === game.dealer;
+
+  // True when the current hand is being played alone by the maker.
+  const goingAlone = game?.goingAlone ?? false;
+  const partnerSeatReal: Seat | null = (game?.partnerSeat as Seat | null) ?? null;
+
+  // Display-seat version of the partner seat (for UI labels).
+  const partnerDisplaySeat: Seat | null = partnerSeatReal ? displaySeat(partnerSeatReal) : null;
 
   // During dealer_discard, the dealer temporarily sees 6 cards (their 5 + the upcard).
   // All other players see only their normal 5-card hand.
@@ -688,6 +729,7 @@ export default function Game() {
           isTurn={game.turn === realSeat}
           teamLabel={teamUi.labelForTeam[teamKeyForSeat(realSeat)]}
           isDealer={game.dealer === realSeat}
+          isSittingOut={goingAlone && realSeat === partnerSeatReal}
           canClaim={!!uid && !game.seats[realSeat] && !mySeat}
           playedCard={
             (game.phase === "playing" || game.phase === "trick_complete")
@@ -773,36 +815,6 @@ export default function Game() {
 
     return () => unsub();
   }, [gameId, uid]);
-
-  // 5) Play a sound notification when it becomes the local player's turn.
-  //    Mobile browsers block programmatic audio unless the Audio element has
-  //    been unlocked by a direct user gesture first. We create the element
-  //    once, prime it on the first touch/click, then reuse it for turn alerts.
-  const turnAudioRef = useRef<HTMLAudioElement | null>(null);
-  useEffect(() => {
-    const audio = new Audio("/sounds/turn.mp3");
-    turnAudioRef.current = audio;
-
-    const unlock = () => {
-      audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
-    };
-    window.addEventListener("touchstart", unlock, { once: true });
-    window.addEventListener("click", unlock, { once: true });
-
-    return () => {
-      window.removeEventListener("touchstart", unlock);
-      window.removeEventListener("click", unlock);
-    };
-  }, []);
-
-  const prevIsMyTurnRef = useRef<boolean | null>(null);
-  useEffect(() => {
-    if (prevIsMyTurnRef.current === false && isMyTurn && turnAudioRef.current) {
-      turnAudioRef.current.currentTime = 0;
-      turnAudioRef.current.play().catch(() => {});
-    }
-    prevIsMyTurnRef.current = isMyTurn;
-  }, [isMyTurn]);
 
   // ---------------------------------------------------------------------------
   // Actions
@@ -922,6 +934,8 @@ export default function Game() {
       bidding: { round: 1, passes: [], orderedUpBy: null },
       trump: null,
       makerSeat: null,
+      goingAlone: null,
+      partnerSeat: null,
       currentTrick: null,
       tricksTaken: { NS: 0, EW: 0 },
       trickWinners: [],
@@ -993,7 +1007,9 @@ export default function Game() {
   }
 
   // Orders up the upcard in round 1, making its suit trump and moving to dealer_discard.
-  async function bidOrderUp() {
+  // Orders up the upcard in round 1. If goingAlone is true, stores the partner seat
+  // so they sit out the hand. The dealer still discards before play begins.
+  async function bidOrderUp(goingAlone = false) {
     if (isGameFinished) return;
     if (!gameRef || !game || !mySeat) return;
     if (game.phase !== "bidding_round_1") return;
@@ -1010,12 +1026,15 @@ export default function Game() {
       if (!g.upcard) return;
 
       const trump = suitCharFromCard(g.upcard);
+      const partner = goingAlone ? partnerOf(mySeat) : null;
 
       tx.update(gameRef, {
         status: "bidding",
         phase: "dealer_discard",
         trump,
         makerSeat: mySeat,
+        goingAlone: goingAlone || null,
+        partnerSeat: partner,
         bidding: {
           round: 1,
           passes: g.bidding?.passes ?? [],
@@ -1025,6 +1044,8 @@ export default function Game() {
         turn: g.dealer, // dealer must pick up the upcard and discard
       });
     });
+
+    setGoAloneIntent(false);
   }
 
   // Records a pass in bidding round 2.
@@ -1072,7 +1093,8 @@ export default function Game() {
 
   // Calls a trump suit in round 2. The upcard suit is not allowed.
   // Transitions directly to playing (no dealer discard in round 2).
-  async function bidCallTrump(suit: Suit) {
+  // If goingAlone is true, the maker's partner sits out the hand.
+  async function bidCallTrump(suit: Suit, goingAlone = false) {
     if (isGameFinished) return;
     if (!gameRef || !game || !mySeat) return;
     if (game.phase !== "bidding_round_2") return;
@@ -1097,20 +1119,31 @@ export default function Game() {
       const forbiddenSuit = suitCharFromCard(g.upcard);
       if (suit === forbiddenSuit) return;
 
+      const partner = goingAlone ? partnerOf(mySeat) : null;
+
+      // In round 2 there is no dealer discard, so skip straight to playing.
+      // If going alone, skip the partner's seat when determining first lead.
+      let firstLead = nextSeat(g.dealer);
+      if (goingAlone && firstLead === partner) firstLead = nextSeat(firstLead);
+
       tx.update(gameRef, {
         status: "playing",
         phase: "playing",
         trump: suit,
         makerSeat: mySeat,
+        goingAlone: goingAlone || null,
+        partnerSeat: partner,
         bidding: {
           round: 2,
           passes: g.bidding?.passes ?? [],
           orderedUpBy: null,
         },
         updatedAt: serverTimestamp(),
-        turn: nextSeat(g.dealer), // first lead goes to the player left of the dealer
+        turn: firstLead,
       });
     });
+
+    setGoAloneIntent(false);
   }
 
   // Handles the dealer picking up the upcard and discarding a card from their combined 6-card hand.
@@ -1156,12 +1189,17 @@ export default function Game() {
 
         tx.update(dealerRef, { hand: nextHand, updatedAt: serverTimestamp() });
 
+        // Determine first lead, skipping the partner if going alone.
+        const partner = g.goingAlone ? g.partnerSeat : null;
+        let firstLead = nextSeat(g.dealer);
+        if (partner && firstLead === partner) firstLead = nextSeat(firstLead);
+
         tx.update(gameRef, {
           status: "playing",
           phase: "playing",
           kitty: nextKitty,
           updatedAt: serverTimestamp(),
-          turn: nextSeat(g.dealer), // first lead goes to the player left of the dealer
+          turn: firstLead,
         });
       });
 
@@ -1230,8 +1268,12 @@ export default function Game() {
         const currentTrickNumber = trick?.trickNumber ?? 1;
         const seatsPlayed = Object.keys(nextCards).length;
 
-        if (seatsPlayed === 4) {
-          // All four players have played — determine the winner and pause so every
+        // When going alone, the trick completes after 3 cards (partner sits out).
+        const partnerSeat = g.goingAlone ? (g.partnerSeat as Seat | null) : null;
+        const trickSize = partnerSeat ? 3 : 4;
+
+        if (seatsPlayed === trickSize) {
+          // All active players have played — determine the winner and pause so every
           // player can see the completed trick before it is cleared from the table.
           const trickWinner = winnerOfTrick(nextCards, leadSeat, trump, leadSuit);
 
@@ -1254,8 +1296,13 @@ export default function Game() {
           return;
         }
 
-        // Trick not yet complete — advance to the next player's turn.
+        // Trick not yet complete — advance to the next active player's turn,
+        // skipping the partner seat if going alone.
         tx.update(playerRef, { hand: nextHand, updatedAt: serverTimestamp() });
+
+        let nextTurn = nextSeat(g.turn);
+        if (partnerSeat && nextTurn === partnerSeat) nextTurn = nextSeat(nextTurn);
+
         tx.update(gameRef, {
           updatedAt: serverTimestamp(),
           currentTrick: {
@@ -1264,7 +1311,7 @@ export default function Game() {
             leadSuit,
             cards: nextCards,
           },
-          turn: nextSeat(g.turn),
+          turn: nextTurn,
         });
       });
 
@@ -1323,7 +1370,8 @@ export default function Game() {
           if (makerTeam && defenseTeam) {
             const makerTricks = nextTaken[makerTeam];
             if (makerTricks >= 5) {
-              nextScore[makerTeam] += 2; // march
+              // March: 4 points going alone, 2 points with partner
+              nextScore[makerTeam] += g.goingAlone ? 4 : 2;
             } else if (makerTricks >= 3) {
               nextScore[makerTeam] += 1; // made it
             } else {
@@ -1349,12 +1397,18 @@ export default function Game() {
             kitty: null,
             trump: null,
             makerSeat: null,
+            goingAlone: null,
+            partnerSeat: null,
             bidding: null,
           });
           return;
         }
 
-        // Hand continues — winner leads the next trick.
+        // Hand continues — winner leads the next trick, skipping partner if going alone.
+        const partnerSeat = g.goingAlone ? (g.partnerSeat as Seat | null) : null;
+        let nextLeadTurn = trickWinner;
+        if (partnerSeat && nextLeadTurn === partnerSeat) nextLeadTurn = nextSeat(nextLeadTurn);
+
         tx.update(gameRef, {
           updatedAt: serverTimestamp(),
           tricksTaken: nextTaken,
@@ -1362,11 +1416,11 @@ export default function Game() {
           phase: "playing",
           currentTrick: {
             trickNumber: currentTrickNumber + 1,
-            leadSeat: trickWinner,
+            leadSeat: nextLeadTurn,
             leadSuit: null,
             cards: {},
           },
-          turn: trickWinner,
+          turn: nextLeadTurn,
         });
       });
 
@@ -1420,20 +1474,24 @@ export default function Game() {
           <b>Game ID:</b> {gameId}
         </div>
         <div style={{ marginTop: 8 }}>
-          
+          <b>Share link:</b>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <a href={url} target="_blank" rel="noreferrer">
+              {url}
+            </a>
+
             <button
               type="button"
               onClick={() => copyShareLink(url)}
               style={{
                 padding: "6px 10px",
                 borderRadius: 8,
-                border: "1px solid #ccc",
-                background: "white",
+                background: "#d1e7dd",
+                border: `1px solid #badbcc`,
                 cursor: "pointer",
               }}
             >
-              {copied ? "Copied!" : "Copy share link"}
+              {copied ? "Copied!" : "Copy"}
             </button>
           </div>
         </div>
@@ -1473,12 +1531,16 @@ export default function Game() {
               ) : (
                 <>⏳ Waiting for dealer ({displayDealer ?? game.dealer}) to discard…</>
               )
+            ) : game.phase === "dealer_discard" && goingAlone && mySeat === partnerSeatReal ? (
+              <>🪑 Your partner is going alone — you're sitting out this hand</>
             ) : game.phase === "trick_complete" ? (
               isMyTurn ? (
                 <>🟢 You won the trick — continue when ready</>
               ) : (
                 <>⏳ Waiting for {turnName} to continue…</>
               )
+            ) : game.phase === "playing" && goingAlone && mySeat === partnerSeatReal ? (
+              <>🪑 Your partner is going alone — you're sitting out this hand</>
             ) : game.phase === "playing" ? (
               isMyTurn ? (
                 <>🟢 Your turn</>
@@ -1607,11 +1669,18 @@ export default function Game() {
 
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button
-                  onClick={bidOrderUp}
+                  onClick={() => bidOrderUp(false)}
                   disabled={!mySeat || mySeat !== game.turn}
                   style={{ ...btnStyle, flex: 1 }}
                 >
                   Order Up
+                </button>
+                <button
+                  onClick={() => bidOrderUp(true)}
+                  disabled={!mySeat || mySeat !== game.turn}
+                  style={{ ...btnStyle, flex: 1 }}
+                >
+                  Go Alone
                 </button>
                 <button
                   onClick={bidPassRound1}
@@ -1649,11 +1718,24 @@ export default function Game() {
                 {upcardSuit ? ` ${suitSymbol(upcardSuit)}` : ""}).
               </div>
 
+              {mySeat && mySeat === game.turn && (
+                <div style={{ marginBottom: 10 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={goAloneIntent}
+                      onChange={(e) => setGoAloneIntent(e.target.checked)}
+                    />
+                    <span style={{ fontSize: 14 }}>Go alone (4 pts for a march)</span>
+                  </label>
+                </div>
+              )}
+
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
                 {round2AllowedSuits.map((suit) => (
                   <button
                     key={suit}
-                    onClick={() => bidCallTrump(suit)}
+                    onClick={() => bidCallTrump(suit, goAloneIntent)}
                     disabled={!mySeat || mySeat !== game.turn}
                     style={{ ...btnStyle, padding: "12px 10px" }}
                   >
