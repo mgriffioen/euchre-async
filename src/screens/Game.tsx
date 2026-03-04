@@ -96,29 +96,73 @@ const SUITS: Suit[] = ["S", "H", "D", "C"];
 // =============================================================================
 // Defined near the top so they're available to all components in this file.
 
-const alertStyle: React.CSSProperties = {
-  padding: 12,
-  background: "#fff3cd",
-  border: "1px solid #ffecb5",
-  borderRadius: 10,
-  marginBottom: 12,
-};
+// Styles that need dark-mode awareness are expressed as CSS classes
+// injected once at module level. Inline style objects are used only for
+// layout/spacing values that never change between color schemes.
+const DARK_MODE_CSS = `
+  .g-alert {
+    padding: 12px;
+    background: #fff3cd;
+    border: 1px solid #ffecb5;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    color: #664d03;
+  }
+  .g-card {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    background: white;
+    margin-bottom: 12px;
+    color: inherit;
+  }
+  .g-btn {
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    background: white;
+    cursor: pointer;
+    color: #111;
+    font-size: 14px;
+  }
+  .g-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  @media (prefers-color-scheme: dark) {
+    .g-alert {
+      background: #3a2e00;
+      border-color: #7a6200;
+      color: #ffd966;
+    }
+    .g-card {
+      background: #1e1e1e;
+      border-color: #444;
+      color: #eee;
+    }
+    .g-btn {
+      background: #2a2a2a;
+      border-color: #555;
+      color: #eee;
+    }
+  }
+`;
 
-const cardStyle: React.CSSProperties = {
-  padding: 12,
-  border: "1px solid #ddd",
-  borderRadius: 12,
-  background: "white",
-  marginBottom: 12,
-};
+// Inject the CSS once at module evaluation time.
+if (typeof document !== "undefined") {
+  const styleId = "euchre-dark-mode-styles";
+  if (!document.getElementById(styleId)) {
+    const el = document.createElement("style");
+    el.id = styleId;
+    el.textContent = DARK_MODE_CSS;
+    document.head.appendChild(el);
+  }
+}
 
-const btnStyle: React.CSSProperties = {
-  padding: "10px 14px",
-  borderRadius: 10,
-  border: "1px solid #ccc",
-  background: "white",
-  cursor: "pointer",
-};
+// Kept for layout-only properties that don't vary by color scheme.
+const alertStyle: React.CSSProperties = {};
+const cardStyle: React.CSSProperties = {};
+const btnStyle: React.CSSProperties = {};
 
 const tableStyle: React.CSSProperties = {
   display: "grid",
@@ -331,7 +375,7 @@ function TrickMeter(props: {
   );
 
   return (
-    <div style={{ ...cardStyle, marginBottom: 12 }}>
+    <div className="g-card" style={{ marginBottom: 12 }}>
       <div style={{ fontWeight: 700, marginBottom: 10 }}>Tricks This Hand</div>
 
       <div style={{ display: "grid", gridTemplateColumns: "72px 1fr 28px", gap: 10, rowGap: 10 }}>
@@ -382,16 +426,13 @@ function SeatCard(props: {
 
   return (
     <div
-      style={{
-        ...cardStyle,
-        borderColor: isTurn ? "#0a7" : "#ddd",
+      className="g-card" style={{ borderColor: isTurn ? "#0a7" : undefined,
         boxShadow: isTurn ? "0 0 0 2px rgba(0,170,119,0.15)" : undefined,
         display: "flex",
         flexDirection: "column",
         paddingTop: 6,
         paddingBottom: 10,
-        minHeight: 130,
-      }}
+        minHeight: 130 }}
     >
       {/* Player name, team badge, dealer badge, and played card */}
       <div
@@ -499,7 +540,7 @@ function SeatCard(props: {
 
       {/* Claim button — only shown for open seats before the local player has sat down */}
       {canClaim ? (
-        <button onClick={onClaim} style={{ ...btnStyle, marginTop: 10, width: "100%" }}>
+        <button onClick={onClaim} className="g-btn" style={{ marginTop: 10, width: "100%" }}>
           Claim
         </button>
       ) : null}
@@ -1436,7 +1477,7 @@ export default function Game() {
     <div>
       {/* Name gate — shown until the player enters a display name */}
       {!hasName ? (
-        <div style={cardStyle}>
+        <div className="g-card">
           <h4 style={{ marginTop: 0 }}>Enter your name</h4>
           <div style={{ color: "#555", marginBottom: 10 }}>
             You'll need a name before you can join or take actions in this game.
@@ -1459,7 +1500,7 @@ export default function Game() {
                 if (e.key === "Enter") saveName();
               }}
             />
-            <button style={btnStyle} onClick={saveName} disabled={!nameDraft.trim()}>
+            <button className="g-btn" onClick={saveName} disabled={!nameDraft.trim()}>
               Continue
             </button>
           </div>
@@ -1554,7 +1595,7 @@ export default function Game() {
             )}
           </div>
 
-          {err && <div style={alertStyle}>{err}</div>}
+          {err && <div className="g-alert">{err}</div>}
 
           {/* Winner banner — shown when the game has ended */}
           {game?.status === "finished" && winnerLabel ? (
@@ -1657,7 +1698,7 @@ export default function Game() {
 
           {/* Bidding UI — Round 1: order up or pass */}
           {game.phase === "bidding_round_1" && (
-            <div style={{ ...cardStyle, marginTop: 12 }}>
+            <div className="g-card" style={{ marginTop: 12 }}>
               <h4 style={{ marginTop: 0 }}>Bidding (Round 1)</h4>
 
               <div style={{ marginBottom: 8 }}>
@@ -1673,21 +1714,21 @@ export default function Game() {
                 <button
                   onClick={() => bidOrderUp(false)}
                   disabled={!mySeat || mySeat !== game.turn}
-                  style={{ ...btnStyle, flex: 1 }}
+                  className="g-btn" style={{ flex: 1 }}
                 >
                   Order Up
                 </button>
                 <button
                   onClick={() => bidOrderUp(true)}
                   disabled={!mySeat || mySeat !== game.turn}
-                  style={{ ...btnStyle, flex: 1 }}
+                  className="g-btn" style={{ flex: 1 }}
                 >
                   Go Alone
                 </button>
                 <button
                   onClick={bidPassRound1}
                   disabled={!mySeat || mySeat !== game.turn}
-                  style={{ ...btnStyle, flex: 1 }}
+                  className="g-btn" style={{ flex: 1 }}
                 >
                   Pass
                 </button>
@@ -1697,7 +1738,7 @@ export default function Game() {
 
           {/* Bidding UI — Round 2: call trump or pass (dealer cannot pass) */}
           {game.phase === "bidding_round_2" && (
-            <div style={{ ...cardStyle, marginTop: 12 }}>
+            <div className="g-card" style={{ marginTop: 12 }}>
               <h4 style={{ marginTop: 0 }}>Bidding (Round 2)</h4>
 
               <div style={{ marginBottom: 8 }}>
@@ -1739,7 +1780,7 @@ export default function Game() {
                     key={suit}
                     onClick={() => bidCallTrump(suit, goAloneIntent)}
                     disabled={!mySeat || mySeat !== game.turn}
-                    style={{ ...btnStyle, padding: "12px 10px" }}
+                    className="g-btn" style={{ padding: "12px 10px" }}
                   >
                     {suitSymbol(suit)}
                   </button>
@@ -1750,7 +1791,7 @@ export default function Game() {
                 <button
                   onClick={bidPassRound2}
                   disabled={!mySeat || mySeat !== game.turn}
-                  style={{ ...btnStyle, width: "100%", marginTop: 10 }}
+                  className="g-btn" style={{ width: "100%", marginTop: 10 }}
                 >
                   Pass
                 </button>
@@ -1766,7 +1807,7 @@ export default function Game() {
 
           {/* Dealer discard UI — dealer selects a card to discard after picking up the upcard */}
           {game.phase === "dealer_discard" && (
-            <div style={{ ...cardStyle, marginTop: 12 }}>
+            <div className="g-card" style={{ marginTop: 12 }}>
               <h4 style={{ marginTop: 0 }}>Dealer: Pick up & Discard</h4>
 
               <div style={{ marginBottom: 8 }}>
@@ -1792,7 +1833,7 @@ export default function Game() {
                       }
                       dealerPickupAndDiscard(code);
                     }}
-                    style={{ ...btnStyle, width: "100%" }}
+                    className="g-btn" style={{ width: "100%" }}
                   >
                     Discard Selected Card
                   </button>
@@ -1816,7 +1857,7 @@ export default function Game() {
             const iWonTheTrick = mySeat === trickWinnerSeat;
 
             return (
-              <div style={{ ...cardStyle, marginTop: 12 }}>
+              <div className="g-card" style={{ marginTop: 12 }}>
                 <div style={{ fontWeight: 700, marginBottom: 8 }}>
                   {iWonTheTrick ? "You won the trick! 🎉" : `${trickWinnerName} won the trick`}
                 </div>
@@ -1824,7 +1865,7 @@ export default function Game() {
                 {iWonTheTrick ? (
                   <button
                     onClick={advanceTrick}
-                    style={{ ...btnStyle, width: "100%" }}
+                    className="g-btn" style={{ width: "100%" }}
                   >
                     {isLastTrick ? "Finish Hand" : "Next Trick"}
                   </button>
@@ -1841,7 +1882,7 @@ export default function Game() {
           {canDeal ? (
             <button
               onClick={startHand}
-              style={{ ...btnStyle, width: "100%", marginBottom: 12 }}
+              className="g-btn" style={{ width: "100%", marginBottom: 12 }}
             >
               Deal
             </button>
