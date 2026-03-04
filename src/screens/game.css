@@ -1,0 +1,342 @@
+/* =============================================================================
+   Game Screen Styles
+   Styles that need dark-mode awareness are expressed as CSS classes here.
+   Inline style objects in components are used only for dynamic values.
+   ============================================================================= */
+
+/* Table layout — 3×3 grid with seats at N/S/E/W and center empty */
+.g-table {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: auto auto auto;
+  gap: 10px;
+  align-items: stretch;
+  justify-items: stretch;
+}
+
+/* Player's hand — horizontal scroll row */
+.g-hand {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: visible; /* allows cards to lift upward when selected */
+  padding-top: 10px;
+  padding-bottom: 8px;
+}
+
+/* Score row */
+.g-score-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  margin-bottom: 12px;
+}
+
+/* Alert / error */
+.g-alert {
+  padding: 12px;
+  background: #fff3cd;
+  border: 1px solid #ffecb5;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  color: #664d03;
+}
+
+/* Generic card panel */
+.g-card {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background: white;
+  margin-bottom: 12px;
+  color: inherit;
+}
+
+/* Generic button */
+.g-btn {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  background: white;
+  cursor: pointer;
+  color: #111;
+  font-size: 14px;
+}
+.g-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Turn banner */
+.g-banner {
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  color: #111;
+}
+.g-banner.my-turn {
+  background: #d1e7dd;
+  border-color: #badbcc;
+  color: #0a3622;
+}
+
+/* Score pill */
+.g-score-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #ddd;
+  background: #fafafa;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  color: #111;
+}
+.g-score-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #666;
+}
+.g-score-sep {
+  color: #bbb;
+  font-weight: 700;
+}
+
+/* Winner banner */
+.g-winner {
+  margin-top: 10px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 2px solid #111;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: #111;
+}
+
+/* Copy button */
+.g-copy-btn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #d1e7dd;
+  border: 1px solid #badbcc;
+  cursor: pointer;
+  color: #0a3622;
+}
+
+/* Team badge in seat card */
+.g-team-badge {
+  font-size: 12px;
+  padding: 2px 8px;
+  margin-top: 3px;
+  border-radius: 8px;
+  display: inline-block;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.g-team-a {
+  background: rgba(0, 128, 0, 0.12);
+  border: 1px solid rgba(0, 128, 0, 0.3);
+  color: #1a5c1a;
+}
+.g-team-b {
+  background: rgba(0, 80, 200, 0.1);
+  border: 1px solid rgba(0, 80, 200, 0.25);
+  color: #0a2e6e;
+}
+
+/* Seat card badges */
+.g-dealer-badge {
+  font-size: 12px;
+  padding: 3px 8px;
+  margin-top: 3px;
+  border-radius: 8px;
+  border: 1px solid #d9d9d9;
+  display: inline-block;
+  white-space: nowrap;
+  line-height: 1.2;
+  background: rgba(0, 0, 0, 0.06);
+  color: #333;
+  font-weight: 700;
+}
+.g-sitting-out-badge {
+  font-size: 12px;
+  padding: 3px 8px;
+  margin-top: 3px;
+  border-radius: 8px;
+  border: 1px solid #f5c6cb;
+  display: inline-block;
+  white-space: nowrap;
+  line-height: 1.2;
+  background: rgba(220, 53, 69, 0.08);
+  color: #842029;
+  font-weight: 600;
+}
+
+/* TrickMeter dots */
+.g-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1px solid #bbb;
+  background: transparent;
+}
+.g-dot.filled {
+  background: #333;
+  border-color: #333;
+}
+
+/* Trump indicator */
+.g-trump {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 10px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  background: white;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  color: #111;
+  transition: all 0.15s ease;
+}
+.g-trump-suit {
+  font-size: 26px;
+  line-height: 1;
+}
+.g-trump-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+.g-trump.theme-eightbit {
+  background: #0d0d0d;
+  border: 3px solid #00ff41;
+  border-radius: 0;
+  box-shadow: 3px 3px 0 #00ff41;
+  font-family: "Courier New", Courier, monospace;
+  color: #00ff41;
+}
+.g-trump.theme-eightbit .g-trump-suit {
+  text-shadow: 0 0 8px currentColor;
+}
+.g-trump.theme-eightbit .g-trump-label {
+  opacity: 0.7;
+  letter-spacing: 0.12em;
+}
+.g-trump.theme-oldwest {
+  background: linear-gradient(145deg, #f5e6c8 0%, #e8d49a 100%);
+  border: 2px solid #8b5c2a;
+  border-radius: 4px;
+  box-shadow: 2px 3px 8px rgba(92, 46, 0, 0.35);
+  font-family: "Palatino Linotype", Palatino, "Book Antiqua", serif;
+  color: #1a0a00;
+}
+.g-trump.theme-oldwest .g-trump-label {
+  opacity: 0.6;
+  letter-spacing: 0.1em;
+}
+
+@media (prefers-color-scheme: dark) {
+  .g-trump {
+    background: #1e1e1e;
+    border-color: #444;
+    color: #eee;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  }
+  .g-trump.theme-eightbit {
+    background: #0d0d0d;
+    border-color: #00ff41;
+    color: #00ff41;
+    box-shadow: 3px 3px 0 #00ff41;
+  }
+  .g-trump.theme-oldwest {
+    background: linear-gradient(145deg, #f5e6c8 0%, #e8d49a 100%);
+    border-color: #8b5c2a;
+    color: #1a0a00;
+  }
+
+  .g-alert {
+    background: #3a2e00;
+    border-color: #7a6200;
+    color: #ffd966;
+  }
+  .g-card {
+    background: #1e1e1e;
+    border-color: #444;
+    color: #eee;
+  }
+  .g-btn {
+    background: #2a2a2a;
+    border-color: #555;
+    color: #eee;
+  }
+  .g-banner {
+    background: #1e1e1e;
+    border-color: #444;
+    color: #ccc;
+  }
+  .g-banner.my-turn {
+    background: #0d2b1e;
+    border-color: #0a7;
+    color: #6ee7b7;
+  }
+  .g-score-pill {
+    background: #1e1e1e;
+    border-color: #444;
+    color: #eee;
+  }
+  .g-score-label {
+    color: #999;
+  }
+  .g-score-sep {
+    color: #555;
+  }
+  .g-winner {
+    background: #1e1e1e;
+    border-color: #aaa;
+    color: #eee;
+  }
+  .g-copy-btn {
+    background: #0d2b1e;
+    border-color: #0a7;
+    color: #6ee7b7;
+  }
+  .g-team-a {
+    background: rgba(0, 170, 100, 0.15);
+    border-color: rgba(0, 170, 100, 0.35);
+    color: #6ee7b7;
+  }
+  .g-team-b {
+    background: rgba(80, 140, 255, 0.12);
+    border-color: rgba(80, 140, 255, 0.3);
+    color: #93c5fd;
+  }
+  .g-dot {
+    border-color: #555;
+  }
+  .g-dot.filled {
+    background: #ccc;
+    border-color: #ccc;
+  }
+  .g-dealer-badge {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: #555;
+    color: #ccc;
+  }
+}
