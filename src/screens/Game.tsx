@@ -129,6 +129,107 @@ const DARK_MODE_CSS = `
     opacity: 0.45;
     cursor: default;
   }
+  /* Turn banner */
+  .g-banner {
+    padding: 12px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    color: #111;
+  }
+  .g-banner.my-turn {
+    background: #d1e7dd;
+    border-color: #badbcc;
+    color: #0a3622;
+  }
+
+  /* Score pill */
+  .g-score-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid #ddd;
+    background: #fafafa;
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+    color: #111;
+  }
+  .g-score-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #666;
+  }
+  .g-score-sep {
+    color: #bbb;
+    font-weight: 700;
+  }
+
+  /* Winner banner */
+  .g-winner {
+    margin-top: 10px;
+    margin-bottom: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 2px solid #111;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    color: #111;
+  }
+
+  /* Copy button */
+  .g-copy-btn {
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #d1e7dd;
+    border: 1px solid #badbcc;
+    cursor: pointer;
+    color: #0a3622;
+  }
+
+  /* Team badge in seat card */
+  .g-team-badge {
+    font-size: 12px;
+    padding: 2px 8px;
+    margin-top: 3px;
+    border-radius: 8px;
+    display: inline-block;
+    white-space: nowrap;
+    line-height: 1.4;
+  }
+  .g-team-a {
+    background: rgba(0,128,0,0.12);
+    border: 1px solid rgba(0,128,0,0.3);
+    color: #1a5c1a;
+  }
+  .g-team-b {
+    background: rgba(0,80,200,0.1);
+    border: 1px solid rgba(0,80,200,0.25);
+    color: #0a2e6e;
+  }
+
+  /* TrickMeter dots */
+  .g-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    border: 1px solid #bbb;
+    background: transparent;
+  }
+  .g-dot.filled {
+    background: #333;
+    border-color: #333;
+  }
+
   @media (prefers-color-scheme: dark) {
     .g-alert {
       background: #3a2e00;
@@ -144,6 +245,54 @@ const DARK_MODE_CSS = `
       background: #2a2a2a;
       border-color: #555;
       color: #eee;
+    }
+    .g-banner {
+      background: #1e1e1e;
+      border-color: #444;
+      color: #ccc;
+    }
+    .g-banner.my-turn {
+      background: #0d2b1e;
+      border-color: #0a7;
+      color: #6ee7b7;
+    }
+    .g-score-pill {
+      background: #1e1e1e;
+      border-color: #444;
+      color: #eee;
+    }
+    .g-score-label {
+      color: #999;
+    }
+    .g-score-sep {
+      color: #555;
+    }
+    .g-winner {
+      background: #1e1e1e;
+      border-color: #aaa;
+      color: #eee;
+    }
+    .g-copy-btn {
+      background: #0d2b1e;
+      border-color: #0a7;
+      color: #6ee7b7;
+    }
+    .g-team-a {
+      background: rgba(0,170,100,0.15);
+      border-color: rgba(0,170,100,0.35);
+      color: #6ee7b7;
+    }
+    .g-team-b {
+      background: rgba(80,140,255,0.12);
+      border-color: rgba(80,140,255,0.3);
+      color: #93c5fd;
+    }
+    .g-dot {
+      border-color: #555;
+    }
+    .g-dot.filled {
+      background: #ccc;
+      border-color: #ccc;
     }
   }
 `;
@@ -357,16 +506,7 @@ function TrickMeter(props: {
   const DotRow = ({ filled }: { filled: number }) => (
     <div style={{ display: "flex", gap: 6 }}>
       {Array.from({ length: 5 }).map((_, i) => (
-        <div
-          key={i}
-          style={{
-            width: 12,
-            height: 12,
-            borderRadius: 999,
-            border: "1px solid #bbb",
-            background: i < filled ? "#111" : "transparent",
-          }}
-        />
+        <div key={i} className={`g-dot${i < filled ? " filled" : ""}`} />
       ))}
     </div>
   );
@@ -471,23 +611,11 @@ function SeatCard(props: {
             minWidth: 0,
           }}
         >
-          <div style={{ color: "#555", fontSize: 18, lineHeight: 1.15 }}>{label}</div>
+          <div style={{ fontSize: 18, lineHeight: 1.15 }}>{label}</div>
 
           {teamLabel ? (
             <div style={{ marginTop: 6 }}>
-              <span
-                style={{
-                  fontSize: 12,
-                  padding: "3px 8px",
-                  borderRadius: 8,
-                  border: "1px solid #d9d9d9",
-                  display: "inline-block",
-                  whiteSpace: "nowrap",
-                  lineHeight: 1.2,
-                  background: teamIsA ? "rgba(66, 133, 244, 0.10)" : "rgba(15, 157, 88, 0.10)",
-                  color: teamIsA ? "#2b5fb8" : "#0a7a46",
-                }}
-              >
+              <span className={`g-team-badge ${teamIsA ? "g-team-a" : "g-team-b"}`}>
                 {teamLabel}
               </span>
             </div>
@@ -1519,13 +1647,7 @@ export default function Game() {
             <button
               type="button"
               onClick={() => copyShareLink(url)}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 8,
-                background: "#d1e7dd",
-                border: `1px solid #badbcc`,
-                cursor: "pointer",
-              }}
+              className="g-copy-btn"
             >
               {copied ? "Copied!" : "Copy"}
             </button>
@@ -1542,16 +1664,7 @@ export default function Game() {
       ) : (
         <>
           {/* Turn banner — highlights whose turn it is and what action is expected */}
-          <div
-            style={{
-              padding: 12,
-              borderRadius: 12,
-              marginBottom: 12,
-              background: isMyTurn ? "#d1e7dd" : "#f8f9fa",
-              border: `1px solid ${isMyTurn ? "#badbcc" : "#ddd"}`,
-              fontWeight: 600,
-            }}
-          >
+          <div className={`g-banner${isMyTurn ? " my-turn" : ""}`}>
             {game.phase?.startsWith("bidding") ? (
               isMyTurn ? (
                 <>
@@ -1596,21 +1709,7 @@ export default function Game() {
 
           {/* Winner banner — shown when the game has ended */}
           {game?.status === "finished" && winnerLabel ? (
-            <div
-              style={{
-                marginTop: 10,
-                marginBottom: 12,
-                padding: "12px 14px",
-                borderRadius: 12,
-                border: "2px solid #111",
-                background: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                flexWrap: "wrap",
-              }}
-            >
+            <div className="g-winner">
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 0.2 }}>
                   🏆 {winnerLabel} wins!
@@ -1621,26 +1720,12 @@ export default function Game() {
 
           {/* Score display */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, marginBottom: 12 }}>
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "6px 10px",
-                borderRadius: 999,
-                border: "1px solid #ddd",
-                background: "#fafafa",
-                fontSize: 18,
-                fontWeight: 800,
-                lineHeight: 1,
-                whiteSpace: "nowrap",
-              }}
-            >
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#666" }}>Team A</span>
+            <span className="g-score-pill">
+              <span className="g-score-label">Team A</span>
               <span style={{ minWidth: 18, textAlign: "center" }}>{scoreNS}</span>
-              <span style={{ color: "#bbb", fontWeight: 700 }}>–</span>
+              <span className="g-score-sep">–</span>
               <span style={{ minWidth: 18, textAlign: "center" }}>{scoreEW}</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#666" }}>Team B</span>
+              <span className="g-score-label">Team B</span>
             </span>
           </div>
 
