@@ -159,10 +159,7 @@ if (typeof document !== "undefined") {
   }
 }
 
-// Kept for layout-only properties that don't vary by color scheme.
-const alertStyle: React.CSSProperties = {};
-const cardStyle: React.CSSProperties = {};
-const btnStyle: React.CSSProperties = {};
+
 
 const tableStyle: React.CSSProperties = {
   display: "grid",
