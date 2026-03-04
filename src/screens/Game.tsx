@@ -1495,11 +1495,9 @@ export default function Game() {
         </div>
       </div>
 
-      <CardThemePicker
-              style={{
-                padding: "6px 0px",
-              }}
-            />
+      <div style={{ marginBottom: 12 }}>
+        <CardThemePicker  />
+      </div>
 
       {!game ? (
         <p>Loading…</p>
