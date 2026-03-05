@@ -21,7 +21,7 @@ export default function PlayerHand({
 
   return (
     <>
-      <h4 style={{ marginTop: 0 }}>Your Hand</h4>
+      <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.5, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>Your hand</div>
       <div className="g-hand">
         {displayHand.map((code, i) => {
           const { rank, suit } = parseCard(code);
