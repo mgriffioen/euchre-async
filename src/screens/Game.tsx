@@ -245,7 +245,7 @@ export default function Game() {
   // ---------------------------------------------------------------------------
 
   return (
-    <div>
+    <div style={{ paddingBottom: 8 }}>
       {/* Name gate */}
       {!hasName && (
         <div className="g-card">
@@ -267,21 +267,14 @@ export default function Game() {
         </div>
       )}
 
-      {/* Game ID and share link */}
-      <div style={{ marginBottom: 12 }}>
-        <div><b>Game ID:</b> {gameId}</div>
-        <div style={{ marginTop: 8 }}>
-          <b>Share link:</b>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <a href={url} target="_blank" rel="noreferrer">{url}</a>
-            <button type="button" onClick={() => actions.copyShareLink(url)} className="g-copy-btn">
-              {copied ? "Copied!" : "Copy"}
-            </button>
-          </div>
-        </div>
+      {/* Game meta — compact single row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+        <span style={{ fontSize: 13, opacity: 0.55 }}>Game: <b>{gameId}</b></span>
+        <button type="button" onClick={() => actions.copyShareLink(url)} className="g-copy-btn" style={{ fontSize: 12, padding: "3px 8px" }}>
+          {copied ? "✓ Copied" : "Share"}
+        </button>
+        <CardThemePicker />
       </div>
-
-      <div style={{ marginBottom: 12 }}><CardThemePicker /></div>
 
       {!game ? <p>Loading…</p> : (
         <>
@@ -306,7 +299,7 @@ export default function Game() {
             </div>
           )}
 
-          {/* Score */}
+          {/* Score + Trump — single row */}
           <div className="g-score-row">
             <span className="g-score-pill">
               <span className="g-score-label">Team A</span>
@@ -315,6 +308,9 @@ export default function Game() {
               <span style={{ minWidth: 18, textAlign: "center" }}>{scoreEW}</span>
               <span className="g-score-label">Team B</span>
             </span>
+            {(game.phase === "playing" || game.phase === "dealer_discard" || game.phase === "trick_complete") && game.trump && (
+              <TrumpIndicator suit={suitSymbol(game.trump)} />
+            )}
           </div>
 
           {/* Trick meter */}
@@ -325,11 +321,6 @@ export default function Game() {
               bLabel={teamUi.labelForTeam[teamUi.bTeam]}
               bCount={game.tricksTaken?.[teamUi.bTeam] ?? 0}
             />
-          )}
-
-          {/* Trump indicator */}
-          {(game.phase === "playing" || game.phase === "dealer_discard" || game.phase === "trick_complete") && game.trump && (
-            <TrumpIndicator suit={suitSymbol(game.trump)} />
           )}
 
           {/* Table */}
@@ -393,23 +384,24 @@ export default function Game() {
             );
           })()}
 
-          {/* Deal button */}
-          {canDeal && (
-            <button onClick={actions.startHand} className="g-btn" style={{ width: "100%", marginBottom: 12 }}>
-              Deal
-            </button>
-          )}
-
-          <PlayerHand
-            displayHand={displayHand}
-            phase={game.phase}
-            isMyTurn={isMyTurn}
-            mustFollow={playableInfo.mustFollow}
-            playableSet={playableInfo.playableSet}
-            selectedCard={selectedCard}
-            onSelect={setSelectedCard}
-            onPlay={actions.playCard}
-          />
+          {/* Deal button + player hand — sticky so they're always visible */}
+          <div className="g-hand-sticky">
+            {canDeal && (
+              <button onClick={actions.startHand} className="g-btn" style={{ width: "100%", marginBottom: 8 }}>
+                Deal
+              </button>
+            )}
+            <PlayerHand
+              displayHand={displayHand}
+              phase={game.phase}
+              isMyTurn={isMyTurn}
+              mustFollow={playableInfo.mustFollow}
+              playableSet={playableInfo.playableSet}
+              selectedCard={selectedCard}
+              onSelect={setSelectedCard}
+              onPlay={actions.playCard}
+            />
+          </div>
         </>
       )}
     </div>

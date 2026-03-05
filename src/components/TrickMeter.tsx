@@ -19,10 +19,8 @@ export default function TrickMeter(props: {
   const { aLabel, aCount, bLabel, bCount } = props;
 
   return (
-    <div className="g-card" style={{ marginBottom: 12 }}>
-      <div style={{ fontWeight: 700, marginBottom: 10 }}>Tricks This Hand</div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "72px 1fr 28px", gap: 10, rowGap: 10 }}>
+    <div className="g-card" style={{ marginBottom: 8, padding: "8px 12px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "72px 1fr 28px", gap: 8, rowGap: 8 }}>
         <div style={{ fontWeight: 700 }}>{aLabel}</div>
         <DotRow filled={aCount} />
         <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{aCount}</div>

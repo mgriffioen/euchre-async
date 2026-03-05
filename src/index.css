@@ -6,6 +6,7 @@
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
+  --bg: #242424;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -38,10 +39,8 @@ img, svg, canvas, video { max-width: 100%; height: auto; }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 h1 {
@@ -77,6 +76,7 @@ input, select, textarea, button {
   :root {
     color: #213547;
     background-color: #ffffff;
+    --bg: #ffffff;
   }
   a:hover {
     color: #747bff;
