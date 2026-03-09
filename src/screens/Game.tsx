@@ -233,7 +233,8 @@ export default function Game() {
           isSittingOut={goingAlone && realSeat === partnerSeatReal}
           canClaim={!!uid && !game.seats[realSeat] && !mySeat}
           playedCard={
-            (game.phase === "playing" || game.phase === "trick_complete")
+            // S = local player; card shown above the hand strip instead
+            displayPos !== "S" && (game.phase === "playing" || game.phase === "trick_complete")
               ? (game.currentTrick?.cards?.[realSeat] ?? null)
               : null
           }
@@ -405,6 +406,23 @@ export default function Game() {
       {/* Player hand — always visible at bottom */}
       {game && (
         <div className="g-hand-sticky">
+          {/* Own played card — shown here instead of the cramped S seat cell */}
+          {mySeat && (game.phase === "playing" || game.phase === "trick_complete") &&
+            game.currentTrick?.cards?.[mySeat] && (() => {
+              const { rank, suit } = parseCard(game.currentTrick.cards[mySeat] as CardCode);
+              const CW = Math.round(70 * 0.55);
+              const CH = Math.round(100 * 0.55);
+              return (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 10px 4px" }}>
+                  <span style={{ fontSize: 11, opacity: 0.55, flexShrink: 0 }}>You played:</span>
+                  <div style={{ width: CW, height: CH, overflow: "hidden", flexShrink: 0 }}>
+                    <div style={{ transform: "scale(0.55)", transformOrigin: "top left" }}>
+                      <Card rank={rankLabel(rank)} suit={suitSymbol(suit)} selected={false} onClick={() => {}} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           {canDeal && (
             <button onClick={actions.startHand} className="g-btn" style={{ width: "100%", marginBottom: 8 }}>
               Deal
