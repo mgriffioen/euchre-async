@@ -159,10 +159,10 @@ function getThemeStyles(theme: CardTheme, isRed: boolean, selected: boolean): Th
         height: 100,
         borderRadius: 6,
         border: selected ? "2px solid #c9a227" : "2px solid #6b521a",
-        background: "linear-gradient(160deg, #1a1030 0%, #0d0820 50%, #1a1030 100%)",
+        background: "linear-gradient(160deg, #3b2a7a 0%, #2d1f66 50%, #3b2a7a 100%)",
         boxShadow: selected
-          ? "0 8px 24px rgba(201,162,39,0.45), inset 0 0 20px rgba(201,162,39,0.08), 0 0 0 1px #c9a227"
-          : "0 4px 12px rgba(0,0,0,0.6), inset 0 0 12px rgba(201,162,39,0.05)",
+          ? "0 8px 24px rgba(201,162,39,0.45), inset 0 0 20px rgba(201,162,39,0.12), 0 0 0 1px #c9a227"
+          : "0 4px 12px rgba(0,0,0,0.4), inset 0 0 12px rgba(201,162,39,0.08)",
         cursor: "pointer",
         transform: selected ? "translateY(-10px)" : "none",
         transition: "all 0.2s ease",
@@ -214,6 +214,69 @@ function getThemeStyles(theme: CardTheme, isRed: boolean, selected: boolean): Th
           <div style={{ position: "absolute", top: 3, right: 3, width: 5, height: 5, border: "1px solid #c9a227", opacity: 0.6, zIndex: 2 }} />
           <div style={{ position: "absolute", bottom: 3, left: 3, width: 5, height: 5, border: "1px solid #c9a227", opacity: 0.6, zIndex: 2 }} />
           <div style={{ position: "absolute", bottom: 3, right: 3, width: 5, height: 5, border: "1px solid #c9a227", opacity: 0.6, zIndex: 2 }} />
+        </>
+      ),
+    };
+  }
+
+  if (theme === "tropical") {
+    return {
+      card: {
+        width: 70,
+        height: 100,
+        borderRadius: 8,
+        border: selected ? "2px solid #0891b2" : "2px solid #67e8f9",
+        background: "linear-gradient(170deg, #e0f7ff 0%, #bae6fd 45%, #fef9c3 100%)",
+        boxShadow: selected
+          ? "0 8px 20px rgba(8,145,178,0.4), 0 0 0 1px #0891b2"
+          : "0 3px 10px rgba(8,145,178,0.2)",
+        cursor: "pointer",
+        transform: selected ? "translateY(-10px)" : "none",
+        transition: "all 0.18s ease",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: 7,
+        fontFamily: "system-ui, -apple-system, sans-serif",
+        position: "relative",
+        overflow: "hidden",
+      },
+      cardSelected: {},
+      redColor: "#e11d48",
+      blackColor: "#0e7490",
+      rankStyle: {
+        fontSize: 20,
+        fontWeight: 700,
+        lineHeight: 1,
+      },
+      suitStyle: {
+        alignSelf: "center",
+        fontSize: 26,
+      },
+      overlay: (
+        <>
+          {/* Sun glow top-right */}
+          <div
+            style={{
+              position: "absolute",
+              top: -12, right: -12,
+              width: 32, height: 32,
+              borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(251,191,36,0.55) 0%, transparent 70%)",
+              zIndex: 1,
+            }}
+          />
+          {/* Wave strip at bottom */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0, left: 0, right: 0,
+              height: 10,
+              background: "repeating-linear-gradient(90deg, #67e8f9 0px, #22d3ee 8px, #67e8f9 16px)",
+              opacity: 0.35,
+              zIndex: 1,
+            }}
+          />
         </>
       ),
     };
