@@ -152,6 +152,73 @@ function getThemeStyles(theme: CardTheme, isRed: boolean, selected: boolean): Th
     };
   }
 
+  if (theme === "royal") {
+    return {
+      card: {
+        width: 70,
+        height: 100,
+        borderRadius: 6,
+        border: selected ? "2px solid #c9a227" : "2px solid #6b521a",
+        background: "linear-gradient(160deg, #1a1030 0%, #0d0820 50%, #1a1030 100%)",
+        boxShadow: selected
+          ? "0 8px 24px rgba(201,162,39,0.45), inset 0 0 20px rgba(201,162,39,0.08), 0 0 0 1px #c9a227"
+          : "0 4px 12px rgba(0,0,0,0.6), inset 0 0 12px rgba(201,162,39,0.05)",
+        cursor: "pointer",
+        transform: selected ? "translateY(-10px)" : "none",
+        transition: "all 0.2s ease",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: 7,
+        fontFamily: '"Georgia", "Times New Roman", serif',
+        position: "relative",
+        overflow: "hidden",
+      },
+      cardSelected: {},
+      redColor: "#c0392b",
+      blackColor: "#c9a227",
+      rankStyle: {
+        fontSize: 20,
+        fontWeight: 700,
+        lineHeight: 1,
+        letterSpacing: 0.5,
+      },
+      suitStyle: {
+        alignSelf: "center",
+        fontSize: 26,
+      },
+      overlay: (
+        <>
+          {/* Gold shimmer top edge */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0, left: 0, right: 0,
+              height: 1,
+              background: "linear-gradient(90deg, transparent, #c9a227, transparent)",
+              zIndex: 1,
+            }}
+          />
+          {/* Gold shimmer bottom edge */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0, left: 0, right: 0,
+              height: 1,
+              background: "linear-gradient(90deg, transparent, #c9a227, transparent)",
+              zIndex: 1,
+            }}
+          />
+          {/* Corner ornaments */}
+          <div style={{ position: "absolute", top: 3, left: 3, width: 5, height: 5, border: "1px solid #c9a227", opacity: 0.6, zIndex: 2 }} />
+          <div style={{ position: "absolute", top: 3, right: 3, width: 5, height: 5, border: "1px solid #c9a227", opacity: 0.6, zIndex: 2 }} />
+          <div style={{ position: "absolute", bottom: 3, left: 3, width: 5, height: 5, border: "1px solid #c9a227", opacity: 0.6, zIndex: 2 }} />
+          <div style={{ position: "absolute", bottom: 3, right: 3, width: 5, height: 5, border: "1px solid #c9a227", opacity: 0.6, zIndex: 2 }} />
+        </>
+      ),
+    };
+  }
+
   // Classic (default)
   return {
     card: {

@@ -264,6 +264,21 @@
   opacity: 0.6;
   letter-spacing: 0.1em;
 }
+.g-trump.theme-royal {
+  background: linear-gradient(160deg, #1a1030 0%, #0d0820 50%, #1a1030 100%);
+  border: 2px solid #6b521a;
+  border-radius: 6px;
+  font-family: "Georgia", "Times New Roman", serif;
+  color: #c9a227;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6), inset 0 0 12px rgba(201, 162, 39, 0.05);
+}
+.g-trump.theme-royal .g-trump-suit {
+  text-shadow: 0 0 8px rgba(201, 162, 39, 0.5);
+}
+.g-trump.theme-royal .g-trump-label {
+  opacity: 0.7;
+  letter-spacing: 0.1em;
+}
 
 @media (prefers-color-scheme: dark) {
   .g-trump {
@@ -282,6 +297,12 @@
     background: linear-gradient(145deg, #f5e6c8 0%, #e8d49a 100%);
     border-color: #8b5c2a;
     color: #1a0a00;
+  }
+  .g-trump.theme-royal {
+    background: linear-gradient(160deg, #1a1030 0%, #0d0820 50%, #1a1030 100%);
+    border-color: #6b521a;
+    color: #c9a227;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8), inset 0 0 12px rgba(201, 162, 39, 0.08);
   }
 
   .g-alert {
