@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from "react";
 
-export type CardTheme = "classic" | "eightbit" | "oldwest";
+export type CardTheme = "classic" | "eightbit" | "oldwest" | "royal";
 
 type CardThemeContextValue = {
   theme: CardTheme;
