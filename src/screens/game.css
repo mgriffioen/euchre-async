@@ -4,24 +4,91 @@
    Inline style objects in components are used only for dynamic values.
    ============================================================================= */
 
+/* ===== Full-viewport layout — no vertical scroll ===== */
+.g-game {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  z-index: 10;
+}
+.g-top-bar {
+  flex-shrink: 0;
+  padding: 6px 10px 0;
+}
+.g-top-bar .g-banner {
+  padding: 8px 12px;
+  margin-bottom: 5px;
+}
+.g-top-bar .g-score-row {
+  margin-top: 2px;
+  margin-bottom: 4px;
+}
+.g-top-bar .g-alert {
+  margin-bottom: 5px;
+}
+.g-top-bar .g-winner {
+  margin-top: 4px;
+  margin-bottom: 5px;
+  padding: 8px 12px;
+}
+.g-table-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+}
+.g-phase-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.22);
+  z-index: 19;
+}
+.g-phase-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  width: min(320px, 92vw);
+  max-height: 90%;
+  overflow-y: auto;
+}
+.g-name-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+.g-name-overlay .g-card {
+  width: min(340px, 90vw);
+  margin-bottom: 0;
+}
+
 /* Table layout — 3×3 grid with seats at N/S/E/W and center empty */
 .g-table {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: 1fr 1fr 1fr;
   gap: 10px;
   align-items: stretch;
   justify-items: stretch;
+  flex: 1;
 }
 
-/* Sticky container that keeps the player's hand pinned to the bottom of the viewport */
+/* Hand bar pinned at bottom of the flex column */
 .g-hand-sticky {
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
   background: var(--bg, #242424);
   border-top: 1px solid rgba(128, 128, 128, 0.15);
   padding: 6px 0 env(safe-area-inset-bottom, 8px);
-  margin-top: 8px;
 }
 
 /* Player's hand — horizontal scroll row */
@@ -292,6 +359,12 @@
 }
 
 @media (prefers-color-scheme: dark) {
+  .g-phase-backdrop {
+    background: rgba(0, 0, 0, 0.4);
+  }
+  .g-name-overlay {
+    background: rgba(0, 0, 0, 0.7);
+  }
   .g-trump {
     background: #1e1e1e;
     border-color: #444;

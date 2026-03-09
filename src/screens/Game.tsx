@@ -245,164 +245,179 @@ export default function Game() {
   // ---------------------------------------------------------------------------
 
   return (
-    <div style={{ paddingBottom: 8 }}>
-      {/* Name gate */}
+    <div className="g-game">
+      {/* Name gate — full-screen overlay until name is entered */}
       {!hasName && (
-        <div className="g-card">
-          <h4 style={{ marginTop: 0 }}>Enter your name</h4>
-          <div style={{ color: "#555", marginBottom: 10 }}>
-            You'll need a name before you can join or take actions in this game.
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              value={nameDraft}
-              onChange={(e) => setNameDraft(e.target.value)}
-              placeholder="Your name"
-              style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid #ccc", fontSize: 16 }}
-              autoFocus
-              onKeyDown={(e) => { if (e.key === "Enter") saveName(); }}
-            />
-            <button className="g-btn" onClick={saveName} disabled={!nameDraft.trim()}>Continue</button>
+        <div className="g-name-overlay">
+          <div className="g-card">
+            <h4 style={{ marginTop: 0 }}>Enter your name</h4>
+            <div style={{ color: "#555", marginBottom: 10 }}>
+              You'll need a name before you can join or take actions in this game.
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                placeholder="Your name"
+                style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid #ccc", fontSize: 16 }}
+                autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter") saveName(); }}
+              />
+              <button className="g-btn" onClick={saveName} disabled={!nameDraft.trim()}>Continue</button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Game meta — compact single row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-        <span style={{ fontSize: 13, opacity: 0.55 }}>Game: <b>{gameId}</b></span>
-        <button type="button" onClick={() => actions.copyShareLink(url)} className="g-copy-btn" style={{ fontSize: 12, padding: "3px 8px" }}>
-          {copied ? "✓ Copied" : "Share"}
-        </button>
-        <CardThemePicker />
+      {/* Top bar — game info, status, score */}
+      <div className="g-top-bar">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+          <span style={{ fontSize: 13, opacity: 0.55 }}>Game: <b>{gameId}</b></span>
+          <button type="button" onClick={() => actions.copyShareLink(url)} className="g-copy-btn" style={{ fontSize: 12, padding: "3px 8px" }}>
+            {copied ? "✓ Copied" : "Share"}
+          </button>
+          <CardThemePicker />
+        </div>
+
+        {!game ? <p>Loading…</p> : (
+          <>
+            <TurnBanner
+              phase={game.phase}
+              isMyTurn={isMyTurn}
+              turnName={turnName}
+              mySeat={mySeat}
+              dealer={game.dealer}
+              displayDealer={displayDealer}
+              goingAlone={goingAlone}
+              partnerSeatReal={partnerSeatReal}
+              biddingPassesLength={game.bidding?.passes?.length ?? 0}
+            />
+
+            {err && <div className="g-alert">{err}</div>}
+
+            {game.status === "finished" && winnerLabel && (
+              <div className="g-winner">
+                <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 0.2 }}>🏆 {winnerLabel} wins!</div>
+              </div>
+            )}
+
+            <div className="g-score-row">
+              <span className="g-score-pill">
+                <span className="g-score-label">Team A</span>
+                <span style={{ minWidth: 18, textAlign: "center" }}>{scoreNS}</span>
+                <span className="g-score-sep">–</span>
+                <span style={{ minWidth: 18, textAlign: "center" }}>{scoreEW}</span>
+                <span className="g-score-label">Team B</span>
+              </span>
+              {(game.phase === "playing" || game.phase === "dealer_discard" || game.phase === "trick_complete") && game.trump && (
+                <TrumpIndicator suit={suitSymbol(game.trump)} />
+              )}
+            </div>
+
+            {(game.phase === "playing" || game.phase === "trick_complete") && (
+              <TrickMeter
+                aLabel={teamUi.labelForTeam[teamUi.aTeam]}
+                aCount={game.tricksTaken?.[teamUi.aTeam] ?? 0}
+                bLabel={teamUi.labelForTeam[teamUi.bTeam]}
+                bCount={game.tricksTaken?.[teamUi.bTeam] ?? 0}
+              />
+            )}
+          </>
+        )}
       </div>
 
-      {!game ? <p>Loading…</p> : (
-        <>
-          <TurnBanner
-            phase={game.phase}
-            isMyTurn={isMyTurn}
-            turnName={turnName}
-            mySeat={mySeat}
-            dealer={game.dealer}
-            displayDealer={displayDealer}
-            goingAlone={goingAlone}
-            partnerSeatReal={partnerSeatReal}
-            biddingPassesLength={game.bidding?.passes?.length ?? 0}
-          />
-
-          {err && <div className="g-alert">{err}</div>}
-
-          {/* Winner banner */}
-          {game.status === "finished" && winnerLabel && (
-            <div className="g-winner">
-              <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 0.2 }}>🏆 {winnerLabel} wins!</div>
-            </div>
-          )}
-
-          {/* Score + Trump — single row */}
-          <div className="g-score-row">
-            <span className="g-score-pill">
-              <span className="g-score-label">Team A</span>
-              <span style={{ minWidth: 18, textAlign: "center" }}>{scoreNS}</span>
-              <span className="g-score-sep">–</span>
-              <span style={{ minWidth: 18, textAlign: "center" }}>{scoreEW}</span>
-              <span className="g-score-label">Team B</span>
-            </span>
-            {(game.phase === "playing" || game.phase === "dealer_discard" || game.phase === "trick_complete") && game.trump && (
-              <TrumpIndicator suit={suitSymbol(game.trump)} />
-            )}
-          </div>
-
-          {/* Trick meter */}
-          {(game.phase === "playing" || game.phase === "trick_complete") && (
-            <TrickMeter
-              aLabel={teamUi.labelForTeam[teamUi.aTeam]}
-              aCount={game.tricksTaken?.[teamUi.aTeam] ?? 0}
-              bLabel={teamUi.labelForTeam[teamUi.bTeam]}
-              bCount={game.tricksTaken?.[teamUi.bTeam] ?? 0}
-            />
-          )}
-
-          {/* Table */}
+      {/* Table area — fills remaining viewport height */}
+      {game && (
+        <div className="g-table-area">
           <div className="g-table">
             {renderSeat("N", "2 / 3", "1 / 2")}
             {renderSeat("W", "1 / 2", "2 / 3")}
+            {/* Upcard in table center during bidding */}
+            {game.upcard && game.phase !== "playing" && game.phase !== "trick_complete" && (() => {
+              const { rank, suit } = parseCard(game.upcard as CardCode);
+              return (
+                <div style={{ gridColumn: "2/3", gridRow: "2/3", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ marginBottom: 4, fontSize: 11, opacity: 0.55 }}>Upcard</div>
+                    <Card rank={rankLabel(rank)} suit={suitSymbol(suit)} selected={false} onClick={() => {}} />
+                  </div>
+                </div>
+              );
+            })()}
             {renderSeat("E", "3 / 4", "2 / 3")}
             {renderSeat("S", "2 / 3", "3 / 4")}
           </div>
 
-          {/* Upcard */}
-          {game.upcard && game.phase !== "playing" && game.phase !== "trick_complete" && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ marginBottom: 10 }}><b>Upcard:</b></div>
-              {(() => {
-                const { rank, suit } = parseCard(game.upcard as CardCode);
-                return <Card rank={rankLabel(rank)} suit={suitSymbol(suit)} selected={false} onClick={() => {}} />;
-              })()}
-            </div>
+          {/* Phase interaction — backdrop + floating panel */}
+          {(game.phase === "bidding_round_1" ||
+            game.phase === "bidding_round_2" ||
+            game.phase === "dealer_discard" ||
+            game.phase === "trick_complete") && (
+            <>
+              <div className="g-phase-backdrop" />
+              <div className="g-phase-overlay">
+                {game.phase === "bidding_round_1" && (
+                  <BiddingRound1Panel
+                    displayTurn={displayTurn} gameTurn={game.turn} displayPasses={displayPasses}
+                    mySeat={mySeat} onOrderUp={actions.bidOrderUp} onPass={actions.bidPassRound1}
+                  />
+                )}
+                {game.phase === "bidding_round_2" && (
+                  <BiddingRound2Panel
+                    displayTurn={displayTurn} gameTurn={game.turn} displayPasses={displayPasses}
+                    isDealerStuck={isDealerStuck} displayDealer={displayDealer} gameDealer={game.dealer}
+                    mySeat={mySeat} upcardSuit={upcardSuit} round2AllowedSuits={round2AllowedSuits}
+                    goAloneIntent={goAloneIntent} onGoAloneChange={setGoAloneIntent}
+                    onCallTrump={actions.bidCallTrump} onPass={actions.bidPassRound2}
+                  />
+                )}
+                {game.phase === "dealer_discard" && (
+                  <DealerDiscardPanel
+                    trump={game.trump} mySeat={mySeat} gameDealer={game.dealer}
+                    displayDealer={displayDealer} selectedCard={selectedCard}
+                    displayHand={displayHand} setErr={setErr} onDiscard={actions.dealerPickupAndDiscard}
+                  />
+                )}
+                {game.phase === "trick_complete" && game.currentTrick?.trickWinner && (() => {
+                  const trickWinnerSeat = game.currentTrick.trickWinner as Seat;
+                  const trickWinnerUid = game.seats[trickWinnerSeat];
+                  const trickWinnerName = trickWinnerUid
+                    ? players[trickWinnerUid]?.name || displaySeat(trickWinnerSeat)
+                    : displaySeat(trickWinnerSeat);
+                  return (
+                    <TrickCompletePanel
+                      trickWinnerName={trickWinnerName}
+                      isLastTrick={(game.currentTrick?.trickNumber ?? 0) >= 5}
+                      iWonTheTrick={mySeat === trickWinnerSeat}
+                      onAdvance={actions.advanceTrick}
+                    />
+                  );
+                })()}
+              </div>
+            </>
           )}
+        </div>
+      )}
 
-          {/* Phase-specific panels */}
-          {game.phase === "bidding_round_1" && (
-            <BiddingRound1Panel
-              displayTurn={displayTurn} gameTurn={game.turn} displayPasses={displayPasses}
-              mySeat={mySeat} onOrderUp={actions.bidOrderUp} onPass={actions.bidPassRound1}
-            />
+      {/* Player hand — always visible at bottom */}
+      {game && (
+        <div className="g-hand-sticky">
+          {canDeal && (
+            <button onClick={actions.startHand} className="g-btn" style={{ width: "100%", marginBottom: 8 }}>
+              Deal
+            </button>
           )}
-
-          {game.phase === "bidding_round_2" && (
-            <BiddingRound2Panel
-              displayTurn={displayTurn} gameTurn={game.turn} displayPasses={displayPasses}
-              isDealerStuck={isDealerStuck} displayDealer={displayDealer} gameDealer={game.dealer}
-              mySeat={mySeat} upcardSuit={upcardSuit} round2AllowedSuits={round2AllowedSuits}
-              goAloneIntent={goAloneIntent} onGoAloneChange={setGoAloneIntent}
-              onCallTrump={actions.bidCallTrump} onPass={actions.bidPassRound2}
-            />
-          )}
-
-          {game.phase === "dealer_discard" && (
-            <DealerDiscardPanel
-              trump={game.trump} mySeat={mySeat} gameDealer={game.dealer}
-              displayDealer={displayDealer} selectedCard={selectedCard}
-              displayHand={displayHand} setErr={setErr} onDiscard={actions.dealerPickupAndDiscard}
-            />
-          )}
-
-          {game.phase === "trick_complete" && game.currentTrick?.trickWinner && (() => {
-            const trickWinnerSeat = game.currentTrick.trickWinner as Seat;
-            const trickWinnerUid = game.seats[trickWinnerSeat];
-            const trickWinnerName = trickWinnerUid
-              ? players[trickWinnerUid]?.name || displaySeat(trickWinnerSeat)
-              : displaySeat(trickWinnerSeat);
-            return (
-              <TrickCompletePanel
-                trickWinnerName={trickWinnerName}
-                isLastTrick={(game.currentTrick?.trickNumber ?? 0) >= 5}
-                iWonTheTrick={mySeat === trickWinnerSeat}
-                onAdvance={actions.advanceTrick}
-              />
-            );
-          })()}
-
-          {/* Deal button + player hand — sticky so they're always visible */}
-          <div className="g-hand-sticky">
-            {canDeal && (
-              <button onClick={actions.startHand} className="g-btn" style={{ width: "100%", marginBottom: 8 }}>
-                Deal
-              </button>
-            )}
-            <PlayerHand
-              displayHand={displayHand}
-              phase={game.phase}
-              isMyTurn={isMyTurn}
-              mustFollow={playableInfo.mustFollow}
-              playableSet={playableInfo.playableSet}
-              selectedCard={selectedCard}
-              onSelect={setSelectedCard}
-              onPlay={actions.playCard}
-            />
-          </div>
-        </>
+          <PlayerHand
+            displayHand={displayHand}
+            phase={game.phase}
+            isMyTurn={isMyTurn}
+            mustFollow={playableInfo.mustFollow}
+            playableSet={playableInfo.playableSet}
+            selectedCard={selectedCard}
+            onSelect={setSelectedCard}
+            onPlay={actions.playCard}
+          />
+        </div>
       )}
     </div>
   );
