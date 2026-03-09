@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { addDoc, collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import { ensureAnonAuth } from "../auth";
@@ -19,9 +19,10 @@ type GameDoc = {
 
 export default function Home() {
   const nav = useNavigate();
+  const location = useLocation();
 
   const [name, setName] = useState(() => localStorage.getItem("playerName") || "");
-  const [joinCode, setJoinCode] = useState("");
+  const [joinCode, setJoinCode] = useState(() => (location.state as { joinCode?: string } | null)?.joinCode ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

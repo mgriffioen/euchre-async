@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { collection, doc, onSnapshot } from "firebase/firestore";
 
 import { db } from "../firebase";
@@ -276,6 +276,7 @@ export default function Game() {
       {/* Top bar — game info, status, score */}
       <div className="g-top-bar">
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <Link to="/" state={{ joinCode: gameId }} className="g-copy-btn" style={{ fontSize: 14, padding: "3px 8px", textDecoration: "none" }} title="Home">🏠</Link>
           <span style={{ fontSize: 13, opacity: 0.55 }}>Game: <b>{gameId}</b></span>
           <button type="button" onClick={() => actions.copyShareLink(url)} className="g-copy-btn" style={{ fontSize: 12, padding: "3px 8px" }}>
             {copied ? "✓ Copied" : "Share"}
