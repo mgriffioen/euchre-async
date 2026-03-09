@@ -20,9 +20,10 @@ export default function SeatCard(props: {
   isSittingOut?: boolean;
   canClaim: boolean;
   playedCard?: CardCode | null;
+  tricksWon?: number; // defined only during playing/trick_complete phases
   onClaim: () => void;
 }) {
-  const { label, isTurn, teamLabel, canClaim, playedCard, onClaim } = props;
+  const { label, isTurn, teamLabel, canClaim, playedCard, tricksWon, onClaim } = props;
   const teamIsA = teamLabel === "Team A";
 
   return (
@@ -53,6 +54,11 @@ export default function SeatCard(props: {
         )}
         {props.isDealer && <span className="g-dealer-badge">Dealer</span>}
         {props.isSittingOut && <span className="g-sitting-out-badge">Sitting out</span>}
+        {tricksWon !== undefined && tricksWon > 0 && (
+          <div style={{ marginTop: 2, fontSize: 11, fontWeight: 700, color: "#0a7", letterSpacing: 1 }}>
+            {"✓".repeat(tricksWon)}
+          </div>
+        )}
       </div>
 
       {/* Played card — fixed-size wrapper so layout matches visual size */}

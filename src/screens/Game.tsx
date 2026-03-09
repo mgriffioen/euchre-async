@@ -7,7 +7,6 @@ import { ensureAnonAuth } from "../auth";
 
 import Card from "../components/Card";
 import SeatCard from "../components/SeatCard";
-import TrickMeter from "../components/TrickMeter";
 import TrumpIndicator from "../components/TrumpIndicator";
 import TurnBanner from "../components/TurnBanner";
 import BiddingRound1Panel from "../components/BiddingRound1Panel";
@@ -218,6 +217,10 @@ export default function Game() {
   const renderSeat = (displayPos: Seat, gridColumn: string, gridRow: string) => {
     if (!game) return null;
     const realSeat = displaySeats[displayPos];
+    const teamKey = teamKeyForSeat(realSeat);
+    const tricksWon = (game.phase === "playing" || game.phase === "trick_complete")
+      ? (game.tricksTaken?.[teamKey] ?? 0)
+      : undefined;
     return (
       <div style={{ gridColumn, gridRow, minHeight: 0, overflow: "hidden" }}>
         <SeatCard
@@ -234,6 +237,7 @@ export default function Game() {
               ? (game.currentTrick?.cards?.[realSeat] ?? null)
               : null
           }
+          tricksWon={tricksWon}
           onClaim={() => actions.claimSeat(realSeat)}
         />
       </div>
@@ -312,18 +316,11 @@ export default function Game() {
                 <span className="g-score-label">Team B</span>
               </span>
               {(game.phase === "playing" || game.phase === "dealer_discard" || game.phase === "trick_complete") && game.trump && (
-                <TrumpIndicator suit={suitSymbol(game.trump)} />
+                <div style={{ marginLeft: "auto" }}>
+                  <TrumpIndicator suit={suitSymbol(game.trump)} />
+                </div>
               )}
             </div>
-
-            {(game.phase === "playing" || game.phase === "trick_complete") && (
-              <TrickMeter
-                aLabel={teamUi.labelForTeam[teamUi.aTeam]}
-                aCount={game.tricksTaken?.[teamUi.aTeam] ?? 0}
-                bLabel={teamUi.labelForTeam[teamUi.bTeam]}
-                bCount={game.tricksTaken?.[teamUi.bTeam] ?? 0}
-              />
-            )}
           </>
         )}
       </div>
