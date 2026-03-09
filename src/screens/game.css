@@ -50,12 +50,12 @@
 }
 .g-phase-overlay {
   position: absolute;
-  top: 50%;
+  bottom: 10px;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   z-index: 20;
   width: min(320px, 92vw);
-  max-height: 90%;
+  max-height: 75%;
   overflow-y: auto;
 }
 .g-name-overlay {

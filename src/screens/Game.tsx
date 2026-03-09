@@ -219,7 +219,7 @@ export default function Game() {
     if (!game) return null;
     const realSeat = displaySeats[displayPos];
     return (
-      <div style={{ gridColumn, gridRow }}>
+      <div style={{ gridColumn, gridRow, minHeight: 0, overflow: "hidden" }}>
         <SeatCard
           seat={displayPos}
           label={seatLabel(realSeat)}

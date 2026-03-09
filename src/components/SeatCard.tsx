@@ -43,7 +43,8 @@ export default function SeatCard(props: {
         flexDirection: "column",
         paddingTop: 6,
         paddingBottom: 10,
-        minHeight: 130,
+        minHeight: 0,
+        height: "100%",
       }}
     >
       {/* Player name, team badge, dealer badge, and played card */}
@@ -63,7 +64,7 @@ export default function SeatCard(props: {
             {(() => {
               const { rank, suit } = parseCard(playedCard);
               return (
-                <div style={{ transform: "scale(0.92)", transformOrigin: "center" }}>
+                <div style={{ transform: "scale(0.75)", transformOrigin: "center" }}>
                   <Card
                     rank={rankLabel(rank)}
                     suit={suitSymbol(suit)}
