@@ -271,12 +271,14 @@ export default function Game() {
 
       {/* Top bar — game info, status, score */}
       <div className="g-top-bar">
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <span style={{ fontSize: 13, opacity: 0.55 }}>Game: <b>{gameId}</b></span>
           <button type="button" onClick={() => actions.copyShareLink(url)} className="g-copy-btn" style={{ fontSize: 12, padding: "3px 8px" }}>
             {copied ? "✓ Copied" : "Share"}
           </button>
-          <CardThemePicker />
+          <div style={{ marginLeft: "auto" }}>
+            <CardThemePicker />
+          </div>
         </div>
 
         {!game ? <p>Loading…</p> : (

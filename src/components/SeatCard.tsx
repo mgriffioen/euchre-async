@@ -1,36 +1,28 @@
-// Renders a single player's seat box on the table. Receives the DISPLAY seat
-// position for layout purposes, but all game logic uses REAL seats externally.
+// Renders a single player's seat box on the table.
 
 import Card from "./Card";
 import { parseCard, rankLabel, suitSymbol } from "../lib/cards";
 import type { CardCode } from "../lib/cards";
 import type { Seat } from "../types/game";
 
+// Card natural size: 70×100px. Scale to 0.85 → 59.5×85 display px.
+const CARD_SCALE = 0.85;
+const CARD_W = Math.round(70 * CARD_SCALE);  // 60px
+const CARD_H = Math.round(100 * CARD_SCALE); // 85px
+
 export default function SeatCard(props: {
-  seat: Seat; // display seat (used for card/text layout direction)
+  seat: Seat;
   label: string;
   isYou: boolean;
   isTurn: boolean;
   teamLabel?: string;
   isDealer: boolean;
-  isSittingOut?: boolean; // true when this player is sitting out a going-alone hand
+  isSittingOut?: boolean;
   canClaim: boolean;
   playedCard?: CardCode | null;
   onClaim: () => void;
 }) {
-  const { seat, label, isTurn, teamLabel, canClaim, playedCard, onClaim } = props;
-
-  // Layout varies by display position so the played card always faces the center of the table.
-  // E: card left of text | W: card right of text | N: card below text | S: card above text
-  const layout =
-    seat === "E"
-      ? { dir: "row" as const, textAlign: "left" as const, textItems: "flex-start" as const }
-      : seat === "W"
-      ? { dir: "row-reverse" as const, textAlign: "right" as const, textItems: "flex-end" as const }
-      : seat === "N"
-      ? { dir: "column-reverse" as const, textAlign: "center" as const, textItems: "center" as const }
-      : { dir: "column" as const, textAlign: "center" as const, textItems: "center" as const }; // S
-
+  const { label, isTurn, teamLabel, canClaim, playedCard, onClaim } = props;
   const teamIsA = teamLabel === "Team A";
 
   return (
@@ -41,78 +33,60 @@ export default function SeatCard(props: {
         boxShadow: isTurn ? "0 0 0 2px rgba(0,170,119,0.15)" : undefined,
         display: "flex",
         flexDirection: "column",
-        paddingTop: 6,
-        paddingBottom: 10,
+        alignItems: "center",
+        padding: "4px 6px 6px",
+        gap: 4,
         minHeight: 0,
         height: "100%",
+        overflow: "hidden",
       }}
     >
-      {/* Player name, team badge, dealer badge, and played card */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: layout.dir,
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 10,
-          flex: "1 1 auto",
-        }}
-      >
-        {/* Played card (shown during trick play) */}
-        {playedCard ? (
-          <div style={{ flex: "0 0 auto" }}>
-            {(() => {
-              const { rank, suit } = parseCard(playedCard);
-              return (
-                <div style={{ transform: "scale(0.75)", transformOrigin: "center" }}>
-                  <Card
-                    rank={rankLabel(rank)}
-                    suit={suitSymbol(suit)}
-                    selected={false}
-                    onClick={() => {}}
-                  />
-                </div>
-              );
-            })()}
-          </div>
-        ) : null}
-
-        {/* Player name and team/dealer badges */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: layout.textItems,
-            textAlign: layout.textAlign,
-            minWidth: 0,
-          }}
-        >
-          <div style={{ fontSize: 18, lineHeight: 1.15 }}>{label}</div>
-
-          {teamLabel ? (
-            <div style={{ marginTop: 6 }}>
-              <span className={`g-team-badge ${teamIsA ? "g-team-a" : "g-team-b"}`}>
-                {teamLabel}
-              </span>
-            </div>
-          ) : null}
-
-          {props.isDealer ? (
-            <span className="g-dealer-badge">Dealer</span>
-          ) : null}
-
-          {props.isSittingOut ? (
-            <span className="g-sitting-out-badge">Sitting out</span>
-          ) : null}
+      {/* Name + badges — always at top, centered */}
+      <div style={{ textAlign: "center", lineHeight: 1.2, flexShrink: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
+          {label}
         </div>
+        {teamLabel && (
+          <div style={{ marginTop: 2 }}>
+            <span className={`g-team-badge ${teamIsA ? "g-team-a" : "g-team-b"}`}>{teamLabel}</span>
+          </div>
+        )}
+        {props.isDealer && <span className="g-dealer-badge">Dealer</span>}
+        {props.isSittingOut && <span className="g-sitting-out-badge">Sitting out</span>}
       </div>
 
-      {/* Claim button — only shown for open seats before the local player has sat down */}
-      {canClaim ? (
-        <button onClick={onClaim} className="g-btn" style={{ marginTop: 10, width: "100%" }}>
+      {/* Played card — fixed-size wrapper so layout matches visual size */}
+      {playedCard ? (() => {
+        const { rank, suit } = parseCard(playedCard);
+        return (
+          <div style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            minHeight: 0,
+          }}>
+            <div style={{
+              width: CARD_W,
+              height: CARD_H,
+              overflow: "hidden",
+              flexShrink: 0,
+            }}>
+              <div style={{ transform: `scale(${CARD_SCALE})`, transformOrigin: "top left" }}>
+                <Card rank={rankLabel(rank)} suit={suitSymbol(suit)} selected={false} onClick={() => {}} />
+              </div>
+            </div>
+          </div>
+        );
+      })() : <div style={{ flex: 1 }} />}
+
+      {/* Claim button */}
+      {canClaim && (
+        <button onClick={onClaim} className="g-btn" style={{ marginTop: 4, width: "100%", flexShrink: 0 }}>
           Claim
         </button>
-      ) : null}
+      )}
     </div>
   );
 }
