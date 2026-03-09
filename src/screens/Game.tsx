@@ -347,11 +347,10 @@ export default function Game() {
             {renderSeat("S", "2 / 3", "3 / 4")}
           </div>
 
-          {/* Phase interaction — backdrop + floating panel */}
+          {/* Bidding / discard — backdrop + bottom panel */}
           {(game.phase === "bidding_round_1" ||
             game.phase === "bidding_round_2" ||
-            game.phase === "dealer_discard" ||
-            game.phase === "trick_complete") && (
+            game.phase === "dealer_discard") && (
             <>
               <div className="g-phase-backdrop" />
               <div className="g-phase-overlay">
@@ -377,24 +376,28 @@ export default function Game() {
                     displayHand={displayHand} setErr={setErr} onDiscard={actions.dealerPickupAndDiscard}
                   />
                 )}
-                {game.phase === "trick_complete" && game.currentTrick?.trickWinner && (() => {
-                  const trickWinnerSeat = game.currentTrick.trickWinner as Seat;
-                  const trickWinnerUid = game.seats[trickWinnerSeat];
-                  const trickWinnerName = trickWinnerUid
-                    ? players[trickWinnerUid]?.name || displaySeat(trickWinnerSeat)
-                    : displaySeat(trickWinnerSeat);
-                  return (
-                    <TrickCompletePanel
-                      trickWinnerName={trickWinnerName}
-                      isLastTrick={(game.currentTrick?.trickNumber ?? 0) >= 5}
-                      iWonTheTrick={mySeat === trickWinnerSeat}
-                      onAdvance={actions.advanceTrick}
-                    />
-                  );
-                })()}
               </div>
             </>
           )}
+
+          {/* Trick complete — slides in from top, no backdrop so all played cards stay visible */}
+          {game.phase === "trick_complete" && game.currentTrick?.trickWinner && (() => {
+            const trickWinnerSeat = game.currentTrick.trickWinner as Seat;
+            const trickWinnerUid = game.seats[trickWinnerSeat];
+            const trickWinnerName = trickWinnerUid
+              ? players[trickWinnerUid]?.name || displaySeat(trickWinnerSeat)
+              : displaySeat(trickWinnerSeat);
+            return (
+              <div className="g-trick-complete-overlay">
+                <TrickCompletePanel
+                  trickWinnerName={trickWinnerName}
+                  isLastTrick={(game.currentTrick?.trickNumber ?? 0) >= 5}
+                  iWonTheTrick={mySeat === trickWinnerSeat}
+                  onAdvance={actions.advanceTrick}
+                />
+              </div>
+            );
+          })()}
         </div>
       )}
 
