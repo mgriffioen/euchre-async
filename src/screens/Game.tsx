@@ -276,7 +276,7 @@ export default function Game() {
       {/* Top bar — game info, status, score */}
       <div className="g-top-bar">
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <Link to="/" className="g-copy-btn" style={{ fontSize: 14, padding: "3px 8px", textDecoration: "none" }} title="Home">🏠</Link>
+          <Link to="/" state={{ joinCode: gameId }} className="g-copy-btn" style={{ fontSize: 14, padding: "3px 8px", textDecoration: "none" }} title="Home">🏠</Link>
           <span style={{ fontSize: 13, opacity: 0.55 }}>Game: <b>{gameId}</b></span>
           <button type="button" onClick={() => actions.copyShareLink(url)} className="g-copy-btn" style={{ fontSize: 12, padding: "3px 8px" }}>
             {copied ? "✓ Copied" : "Share"}
