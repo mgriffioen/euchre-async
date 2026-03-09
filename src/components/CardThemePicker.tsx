@@ -21,6 +21,11 @@ const THEMES: { id: CardTheme; label: string; description: string }[] = [
     label: "👑 Royal",
     description: "Luxury gold on midnight",
   },
+  {
+    id: "tropical",
+    label: "🌴 Tropical",
+    description: "Beach vibes",
+  },
 ];
 
 export default function CardThemePicker() {

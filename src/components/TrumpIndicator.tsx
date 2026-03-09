@@ -11,6 +11,8 @@ export default function TrumpIndicator({ suit }: { suit: string }) {
       ? isRed ? "#8b1a1a" : "#1a0a00"
       : theme === "royal"
       ? isRed ? "#c0392b" : "#c9a227"
+      : theme === "tropical"
+      ? isRed ? "#e11d48" : "#0e7490"
       : isRed ? "#d22" : "#111";
 
   return (
