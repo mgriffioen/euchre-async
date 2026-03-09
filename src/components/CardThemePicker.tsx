@@ -40,7 +40,7 @@ export default function CardThemePicker() {
         .theme-picker-dropdown {
           position: absolute;
           top: calc(100% + 4px);
-          left: 0;
+          right: 0;
           z-index: 51;
           background: var(--bg, #fff);
           border: 1px solid #ddd;
