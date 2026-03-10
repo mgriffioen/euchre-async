@@ -13,7 +13,7 @@ export default function App() {
         }}
       >
         <Link to="/" style={{ textDecoration: "none" }}>
-          <h2 style={{ margin: 0 }}>Async Euchre</h2>
+          <h2 style={{ margin: 0, fontFamily: "'Oi', serif" }}>Euchre!</h2>
         </Link>
       </header>
 
