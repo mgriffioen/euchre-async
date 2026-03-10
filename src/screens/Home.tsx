@@ -114,9 +114,8 @@ export default function Home() {
 const btnStyle: React.CSSProperties = {
   padding: "10px 14px",
   borderRadius: 10,
-  border: "1px solid #DC143C",
-  background: "#DC143C",
-  color: "white";
+  border: "1px solid #ccc",
+  background: "white",
   cursor: "pointer",
 };
 
