@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /games/{gameId} {
+      // Any authenticated user (including anonymous) can read games
+      allow read: if request.auth != null;
+      // Any authenticated user can create a game
+      allow create: if request.auth != null;
+      // Any authenticated user can update a game (claim seats, bid, play, etc.)
+      allow update: if request.auth != null;
+
+      match /players/{playerId} {
+        // Any authenticated user can read player docs in a game
+        allow read: if request.auth != null;
+        // Any authenticated user can write player docs
+        // (needed for the dealer to distribute hands to all players)
+        allow write: if request.auth != null;
+      }
+    }
+  }
+}
