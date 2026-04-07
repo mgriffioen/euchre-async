@@ -282,6 +282,115 @@ function getThemeStyles(theme: CardTheme, isRed: boolean, selected: boolean): Th
     };
   }
 
+  if (theme === "busted") {
+    return {
+      card: {
+        width: 70,
+        height: 100,
+        borderRadius: 3,
+        border: selected ? "2px solid #7a6a5a" : "1px solid #9b8c7a",
+        background: "linear-gradient(140deg, #e8dcc0 0%, #ddd0a8 35%, #cfc19a 65%, #ddd0b0 100%)",
+        boxShadow: selected
+          ? "0 6px 14px rgba(55,35,10,0.5), inset 0 0 12px rgba(90,60,20,0.25)"
+          : "1px 2px 6px rgba(55,35,10,0.35), inset 0 0 8px rgba(90,60,20,0.15)",
+        cursor: "pointer",
+        transform: selected ? "translateY(-8px) rotate(-0.8deg)" : "rotate(0.4deg)",
+        transition: "all 0.2s ease",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: 7,
+        fontFamily: '"Palatino Linotype", Palatino, "Book Antiqua", serif',
+        position: "relative",
+        overflow: "hidden",
+      },
+      cardSelected: {},
+      redColor: "#7a1c1c",
+      blackColor: "#221810",
+      rankStyle: {
+        fontSize: 20,
+        fontWeight: 700,
+        lineHeight: 1,
+        letterSpacing: 0.5,
+        opacity: 0.82,
+      },
+      suitStyle: {
+        alignSelf: "center",
+        fontSize: 26,
+        opacity: 0.82,
+      },
+      overlay: (
+        <>
+          {/* Edge darkening — hands have touched this card a thousand times */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              pointerEvents: "none",
+              background: "radial-gradient(ellipse at center, transparent 52%, rgba(55,35,10,0.28) 100%)",
+              zIndex: 1,
+            }}
+          />
+          {/* Grime splotch upper-left */}
+          <div
+            style={{
+              position: "absolute",
+              top: 8,
+              left: 6,
+              width: 18,
+              height: 12,
+              borderRadius: "50%",
+              background: "radial-gradient(ellipse, rgba(90,60,20,0.18) 0%, transparent 70%)",
+              pointerEvents: "none",
+              zIndex: 2,
+            }}
+          />
+          {/* Coffee stain lower-right */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 14,
+              right: 7,
+              width: 16,
+              height: 11,
+              borderRadius: "50%",
+              background: "radial-gradient(ellipse, rgba(110,70,20,0.16) 0%, transparent 70%)",
+              pointerEvents: "none",
+              zIndex: 2,
+            }}
+          />
+          {/* Diagonal crinkle / crease */}
+          <div
+            style={{
+              position: "absolute",
+              top: 20,
+              left: -10,
+              width: "130%",
+              height: 2,
+              background: "rgba(55,35,10,0.09)",
+              transform: "rotate(-7deg)",
+              pointerEvents: "none",
+              zIndex: 2,
+            }}
+          />
+          {/* Dog-eared top-right corner shadow */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              width: 14,
+              height: 14,
+              background: "linear-gradient(225deg, rgba(55,35,10,0.28) 0%, transparent 65%)",
+              pointerEvents: "none",
+              zIndex: 3,
+            }}
+          />
+        </>
+      ),
+    };
+  }
+
   // Classic (default)
   return {
     card: {
