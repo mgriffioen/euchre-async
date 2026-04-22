@@ -102,7 +102,6 @@
 
   .view { display: none; flex: 1; overflow: hidden; padding: 12px 20px; min-height: 0; }
   .view.active { display: flex; flex-direction: column; gap: 12px; }
-  #standings-view.active { padding: 0; gap: 0; }
 
   /* ── TABLE CARD — each takes half the available height ── */
   .table-card {
@@ -266,12 +265,15 @@
 
   /* ── STANDINGS VIEW ── */
   #standings-view {
-    padding: 12px 20px;
-    display: flex;
+    display: none;
     flex-direction: column;
-    overflow: hidden;
     flex: 1;
     min-height: 0;
+    padding: 12px 20px;
+    overflow: hidden;
+  }
+  #standings-view.active {
+    display: flex;
   }
   .standings-title {
     font-family: 'Playfair Display', serif;
@@ -367,11 +369,11 @@
 
   <div id="main">
     <!-- ROUNDS VIEWS (0–6) filled by JS -->
-    <!-- STANDINGS VIEW -->
-    <div class="view" id="standings-view">
-      <div class="standings-title">Standings</div>
-      <div id="standings-list"></div>
-    </div>
+  </div>
+
+  <div id="standings-view" style="display:none">
+    <div class="standings-title">Standings</div>
+    <div id="standings-list"></div>
   </div>
 
   <div class="reset-area">
@@ -477,14 +479,13 @@ function buildUI() {
   const main = document.getElementById('main');
   // Remove old round views
   main.querySelectorAll('.round-view').forEach(el => el.remove());
-  const standingsView = document.getElementById('standings-view');
 
   ROUND_DATA.forEach((round, ri) => {
     const view = document.createElement('div');
     view.className = 'view round-view';
     view.id = `round-view-${ri}`;
     view.innerHTML = buildRoundHTML(round, ri);
-    main.insertBefore(view, standingsView);
+    main.appendChild(view);
   });
 
   buildRoundNav();
@@ -691,6 +692,8 @@ function switchRound(ri) {
 function activateRoundView(ri) {
   document.querySelectorAll('.round-view').forEach(v => v.classList.remove('active'));
   document.getElementById(`round-view-${ri}`).classList.add('active');
+  document.getElementById('main').style.display = 'flex';
+  document.getElementById('standings-view').style.display = 'none';
   document.getElementById('standings-view').classList.remove('active');
   document.getElementById('header-badge').textContent = `Round ${ri+1}`;
 }
@@ -700,11 +703,14 @@ function showSection(sec) {
   document.getElementById('nav-rounds').classList.toggle('active', sec === 'rounds');
   document.getElementById('nav-standings').classList.toggle('active', sec === 'standings');
   if (sec === 'rounds') {
+    document.getElementById('main').style.display = 'flex';
+    document.getElementById('standings-view').style.display = 'none';
+    document.getElementById('standings-view').classList.remove('active');
     activateRoundView(currentRound);
   } else {
-    document.querySelectorAll('.round-view').forEach(v => v.classList.remove('active'));
-    const sv = document.getElementById('standings-view');
-    sv.classList.add('active');
+    document.getElementById('main').style.display = 'none';
+    document.getElementById('standings-view').style.display = 'flex';
+    document.getElementById('standings-view').classList.add('active');
     document.getElementById('header-badge').textContent = 'Standings';
     renderStandings();
   }
