@@ -102,6 +102,7 @@
 
   .view { display: none; flex: 1; overflow: hidden; padding: 12px 20px; min-height: 0; }
   .view.active { display: flex; flex-direction: column; gap: 12px; }
+  #standings-view.active { padding: 0; gap: 0; }
 
   /* ── TABLE CARD — each takes half the available height ── */
   .table-card {
@@ -264,33 +265,49 @@
   .score-dash { color: rgba(201,168,76,0.35); font-size: 16px; margin: 0 2px; }
 
   /* ── STANDINGS VIEW ── */
-  #standings-view { padding: 20px 28px; }
+  #standings-view {
+    padding: 12px 20px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+    min-height: 0;
+  }
   .standings-title {
     font-family: 'Playfair Display', serif;
-    font-size: 26px;
+    font-size: 22px;
     color: var(--gold);
-    margin-bottom: 18px;
+    margin-bottom: 10px;
     letter-spacing: 0.03em;
+    flex-shrink: 0;
+  }
+  #standings-list {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: 6px;
   }
   .standing-row {
     display: flex;
     align-items: center;
-    padding: 16px 22px;
-    border-radius: 14px;
-    margin-bottom: 10px;
+    padding: 0 18px;
+    border-radius: 12px;
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(201,168,76,0.1);
-    gap: 16px;
+    gap: 14px;
+    flex: 1;
+    min-height: 0;
   }
   .standing-row.rank-1 { background: rgba(201,168,76,0.14); border-color: rgba(201,168,76,0.4); }
-  .rank-num { width: 32px; font-size: 16px; color: var(--cream-dim); flex-shrink: 0; text-align: center; }
-  .rank-1 .rank-num { color: var(--gold); font-weight: 700; font-size: 20px; }
+  .rank-num { width: 28px; font-size: 15px; color: var(--cream-dim); flex-shrink: 0; text-align: center; }
+  .rank-1 .rank-num { color: var(--gold); font-weight: 700; font-size: 18px; }
   .standing-pip { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
-  .standing-name { flex: 1; font-size: 22px; font-weight: 400; color: var(--cream); }
+  .standing-name { flex: 1; font-size: 20px; font-weight: 400; color: var(--cream); }
   .rank-1 .standing-name { font-weight: 500; color: var(--gold-light); }
-  .standing-wins { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 700; color: var(--cream-dim); min-width: 36px; text-align: right; }
+  .standing-wins { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 700; color: var(--cream-dim); min-width: 32px; text-align: right; }
   .rank-1 .standing-wins { color: var(--gold); }
-  .wins-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--cream-dim); opacity: 0.6; flex-shrink: 0; }
+  .wins-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--cream-dim); opacity: 0.6; flex-shrink: 0; }
 
   /* ── BOTTOM NAV ── */
   footer { background: rgba(0,0,0,0.4); border-top: 1px solid rgba(201,168,76,0.25); display: flex; flex-shrink: 0; }
