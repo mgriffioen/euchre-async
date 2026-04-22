@@ -168,6 +168,20 @@
     display: none;
   }
   .winner-badge.visible { display: inline-block; }
+  .table-reset-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: rgba(201,168,76,0.35);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .table-reset-btn:hover { color: var(--red-light); }
 
   .matchup {
     display: grid;
@@ -505,6 +519,7 @@ function buildTableCard(table, ri, ti, label) {
     <div class="table-header">
       <span class="table-name">${label}</span>
       <span class="winner-badge${winnerText ? ' visible' : ''}" id="wb-${ri}-${ti}">${winnerText}</span>
+      <button class="table-reset-btn" onclick="resetTable(${ri},${ti})" title="Clear scores for this table">✕ Clear</button>
     </div>
     <div class="matchup">
       <div class="team-side left">
@@ -523,6 +538,17 @@ function buildTableCard(table, ri, ti, label) {
       </div>
     </div>
   </div>`;
+}
+
+function resetTable(ri, ti) {
+  scores[ri][ti] = ['',''];
+  save();
+  const inputs = document.querySelectorAll(`.score-box[data-ri="${ri}"][data-ti="${ti}"]`);
+  inputs.forEach(inp => { inp.value = ''; inp.classList.remove('winning'); });
+  const wb = document.getElementById(`wb-${ri}-${ti}`);
+  if (wb) { wb.textContent = ''; wb.classList.remove('visible'); }
+  buildRoundNav();
+  if (section === 'standings') renderStandings();
 }
 
 function buildRoundNav() {
