@@ -178,14 +178,24 @@
   .player-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 20px;
-    font-weight: 400;
-    color: var(--cream);
-    white-space: nowrap;
+    gap: 6px;
   }
   .team-side.right .player-row { flex-direction: row-reverse; }
 
+  .avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2.5px solid rgba(201,168,76,0.5);
+    flex-shrink: 0;
+    display: block;
+  }
+  .handshake {
+    font-size: 22px;
+    line-height: 1;
+    opacity: 0.85;
+  }
   .pip { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
 
   /* ── SCORE STEPPER ── */
@@ -385,6 +395,17 @@ const COLORS = {
   'Dusty':    '#888780'
 };
 
+const AVATARS = {
+  'Mark':     'https://lh3.googleusercontent.com/pw/AP1GczOTVxDKqxIPMsQYWQC7rVagvAuD-4DyiShK0v1qlNQehmuDrRaRKYKSx0U03YytNZkIYhD9c-JaIzW6sR0OvNcQw6ZTBYfAwhp3HempVTuMlunj3OIPCNvDMKxY4BoKuymTepw5vLkHH1HBDOQkpRPB4A=w2084-h2084-s-no-gm?authuser=0',
+  'Erik':     'https://lh3.googleusercontent.com/pw/AP1GczNuiggpPZMY0p-bp1y1fYreUrgGi45VBYgPQaWB7CkDS-lzDL9Wti5zEhZW-Hys3BsSlehYK0VBw3YwmK2mE61IpSl3xj87Lqhh7NJPX5il4r7mmFxVW4LIVCAeUuuqR5M7PeIauYvZ1BwvkxpZ4x9Hmg=w2306-h2307-s-no-gm?authuser=0',
+  'Sean':     'https://lh3.googleusercontent.com/pw/AP1GczMl3EPNgZqL5sfEgp1mTr1zCK-Rv_GsAWyQr5BcPV_LCZKGzx7KQXycCUmJWfLtuzGomhwnv84txhXRcBVhp6JMQFw3Vctj3gXnnBUlvop-rvUCBSpWfK6WCW1DBqXDnoiBllxvqBWu3EM2FlKJGvlDlg=w1871-h1871-s-no-gm?authuser=0',
+  'Carl':     'https://lh3.googleusercontent.com/pw/AP1GczNHjK6dC-9LeFg52OUUAgvTt8Gi2x-zD0TZJNjas_5f07LjFQeW6tZO6DIDVL0UbNablWrCMz_13j0YU-xiFfNjJfhIpaRGZkPg4MUtX2cjBgX9gmNJACFFxp6ti67PdEjlIJuECEIIS1ws_MVIDrTksQ=w2632-h2632-s-no-gm?authuser=0',
+  'Brandon':  'https://lh3.googleusercontent.com/pw/AP1GczOVf8fc1WgFvW153mcZLGrYUZIMsGEybFruhqnm9EUNowRcSFi7GzPYJ8w70aStVJERcGj5Dho7UW7D3Wu8QPMNi0xOcC72PxvLoDIUO5JxNvF9id5-kwA1ja-wWLUS5FFhjcjqmaRfymu7JBqS0POdbw=w2632-h2632-s-no-gm?authuser=0',
+  'Paul':     'https://lh3.googleusercontent.com/pw/AP1GczOoBOuqdYqjYxrnG3MI-Vh9MRk8ggHatSMF25I49EGL8LC02vZFCaqnfB6izUYSZDVzLdvmH4JlwC0UoyPl3nwGsWaRQN1BvEIJMsz-o515xuSesUT4wx1-2Mucswgnz50pYh5W93hXwVs3_Oa77Cgk9g=w2126-h2126-s-no-gm?authuser=0',
+  'Benedict': 'https://lh3.googleusercontent.com/pw/AP1GczNPxsE56XpGK8GG7DnbpqgnaGHGSyPyy7kg8-8AvgcxqOB0OLBBt8uufl4bNIaXujWk3DhlXIdR9D9SMyxgCRzLKDTYwffBbcKPRxvgbtZLFQOhI8XrqZ8B9C52ZXeS9jEDO7hoZ2J7t6-ZPCXO7449cg=w1325-h1325-s-no-gm?authuser=0',
+  'Dusty':    'https://lh3.googleusercontent.com/pw/AP1GczP51KgtcuUUNYiBS6TfGKHvWY6ABuA1BE2ZakGMGe_SghJpIHlkHIagI45LUu-un6Z3WtdEb3ETJCDu89RChW_gnf04M3zw4tbv1w6vPgQFQeyQc-qSjmMOlErMl_sZTuuK4R2GxctH2VlMBSs-3gm9Nw=w1230-h1230-s-no-gm?authuser=0',
+};
+
 const ROUNDS = [
   [['Mark','Erik'],['Sean','Carl']],
   [['Brandon','Paul'],['Benedict','Dusty']],
@@ -450,24 +471,40 @@ function buildRoundHTML(round, ri) {
   `;
 }
 
+function avatarImgTag(p, size) {
+  return '<img src="' + AVATARS[p] + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;border:1.5px solid var(--felt);margin-right:-6px;vertical-align:middle;">';
+}
+
 function buildTableCard(table, ri, ti, label) {
   const s = scores[ri][ti];
   const s0 = s[0] === '' ? '' : +s[0];
   const s1 = s[1] === '' ? '' : +s[1];
   const t1wins = s0 !== '' && s0 >= 10 && (s1 === '' || s0 > s1);
   const t2wins = s1 !== '' && s1 >= 10 && (s0 === '' || s1 > s0);
-  const winnerText = t1wins ? `${table.t1.join(' & ')} win` : t2wins ? `${table.t2.join(' & ')} win` : '';
+  const winnerTeam = t1wins ? table.t1 : t2wins ? table.t2 : null;
+  const winnerHTML = winnerTeam
+    ? winnerTeam.map(p => avatarImgTag(p, 24)).join('') + ' &nbsp;' + winnerTeam.join(' & ') + ' win'
+    : '';
+
+  const a1 = AVATARS[table.t1[0]], n1 = table.t1[0];
+  const a2 = AVATARS[table.t1[1]], n2 = table.t1[1];
+  const a3 = AVATARS[table.t2[0]], n3 = table.t2[0];
+  const a4 = AVATARS[table.t2[1]], n4 = table.t2[1];
 
   return `
   <div class="table-card" id="card-${ri}-${ti}">
     <div class="table-header">
       <span class="table-name">${label}</span>
-      <span class="winner-badge${winnerText ? ' visible' : ''}" id="wb-${ri}-${ti}">${winnerText}</span>
+      <span class="winner-badge${winnerHTML ? ' visible' : ''}" id="wb-${ri}-${ti}">${winnerHTML}</span>
       <button class="table-reset-btn" onclick="resetTable(${ri},${ti})" title="Clear scores for this table">✕ Clear</button>
     </div>
     <div class="matchup">
       <div class="team-side left">
-        ${table.t1.map(p => `<div class="player-row"><div class="pip" style="background:${COLORS[p]}"></div>${p}</div>`).join('')}
+        <div class="player-row">
+          <img class="avatar" src="${a1}" alt="${n1}" title="${n1}">
+          <span class="handshake">🤝</span>
+          <img class="avatar" src="${a2}" alt="${n2}" title="${n2}">
+        </div>
       </div>
       <div class="vs-col">
         <span class="vs-label">vs</span>
@@ -486,7 +523,11 @@ function buildTableCard(table, ri, ti, label) {
         </div>
       </div>
       <div class="team-side right">
-        ${table.t2.map(p => `<div class="player-row"><div class="pip" style="background:${COLORS[p]}"></div>${p}</div>`).join('')}
+        <div class="player-row">
+          <img class="avatar" src="${a3}" alt="${n3}" title="${n3}">
+          <span class="handshake">🤝</span>
+          <img class="avatar" src="${a4}" alt="${n4}" title="${n4}">
+        </div>
       </div>
     </div>
   </div>`;
@@ -558,9 +599,18 @@ function refreshCard(ri, ti) {
   if (d1) { d1.textContent = s1; d1.classList.toggle('winning', t2wins); }
 
   const table = ti === 0 ? ROUND_DATA[ri].table1 : ROUND_DATA[ri].table2;
-  const winnerText = t1wins ? `${table.t1.join(' & ')} win` : t2wins ? `${table.t2.join(' & ')} win` : '';
+  const winnerTeam = t1wins ? table.t1 : t2wins ? table.t2 : null;
   const wb = document.getElementById(`wb-${ri}-${ti}`);
-  if (wb) { wb.textContent = winnerText; wb.classList.toggle('visible', !!winnerText); }
+  if (wb) {
+    if (winnerTeam) {
+      const avatarHtml = winnerTeam.map(p => avatarImgTag(p, 24)).join('');
+      wb.innerHTML = avatarHtml + ' &nbsp;' + winnerTeam.join(' & ') + ' win';
+      wb.classList.add('visible');
+    } else {
+      wb.innerHTML = '';
+      wb.classList.remove('visible');
+    }
+  }
 }
 
 function switchRound(ri) {
@@ -615,7 +665,7 @@ function renderStandings() {
     const isFirst = i === 0 && maxW > 0;
     return `<div class="standing-row${isFirst ? ' rank-1' : ''}">
       <div class="rank-num">${isFirst ? '♛' : i+1}</div>
-      <div class="standing-pip" style="background:${COLORS[p]}"></div>
+      <img class="standing-pip" src="${AVATARS[p]}" alt="${p}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(201,168,76,${isFirst?'0.7':'0.3'});flex-shrink:0;">
       <div class="standing-name">${p}</div>
       <div class="standing-wins">${wins[p]}</div>
       <div class="wins-label">wins</div>
