@@ -510,8 +510,8 @@ function buildTableCard(table, ri, ti, label) {
   const s = scores[ri][ti];
   const s0 = s[0] === '' ? '' : +s[0];
   const s1 = s[1] === '' ? '' : +s[1];
-  const t1wins = s0 !== '' && s1 !== '' && s0 > s1;
-  const t2wins = s0 !== '' && s1 !== '' && s1 > s0;
+  const t1wins = s0 !== '' && s0 >= 10 && (s1 === '' || s0 > s1);
+  const t2wins = s1 !== '' && s1 >= 10 && (s0 === '' || s1 > s0);
   const winnerText = t1wins ? `${table.t1.join(' & ')} win` : t2wins ? `${table.t2.join(' & ')} win` : '';
 
   return `
@@ -576,8 +576,8 @@ function refreshCard(ri, ti) {
   const s = scores[ri][ti];
   const s0 = s[0] === '' ? '' : +s[0];
   const s1 = s[1] === '' ? '' : +s[1];
-  const t1wins = s0 !== '' && s1 !== '' && s0 > s1;
-  const t2wins = s0 !== '' && s1 !== '' && s1 > s0;
+  const t1wins = s0 !== '' && s0 >= 10 && (s1 === '' || s0 > s1);
+  const t2wins = s1 !== '' && s1 >= 10 && (s0 === '' || s1 > s0);
 
   const box0 = document.querySelector(`.score-box[data-ri="${ri}"][data-ti="${ti}"][data-side="0"]`);
   const box1 = document.querySelector(`.score-box[data-ri="${ri}"][data-ti="${ti}"][data-side="1"]`);
@@ -627,9 +627,11 @@ function renderStandings() {
       const s = scores[ri][ti];
       const s0 = s[0] === '' ? null : +s[0];
       const s1 = s[1] === '' ? null : +s[1];
-      if (s0 === null || s1 === null) return;
-      if (s0 > s1) table.t1.forEach(p => wins[p]++);
-      else if (s1 > s0) table.t2.forEach(p => wins[p]++);
+      if (s0 === null && s1 === null) return;
+      const t1wins = s0 !== null && s0 >= 10 && (s1 === null || s0 > s1);
+      const t2wins = s1 !== null && s1 >= 10 && (s0 === null || s1 > s0);
+      if (t1wins) table.t1.forEach(p => wins[p]++);
+      else if (t2wins) table.t2.forEach(p => wins[p]++);
     });
   });
 
