@@ -182,14 +182,9 @@
   }
   .team-side.right .player-row { flex-direction: row-reverse; }
 
-  .avatar {
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2.5px solid rgba(201,168,76,0.5);
+  .avatar-svg {
     flex-shrink: 0;
-    display: block;
+    overflow: visible;
   }
   .handshake {
     font-size: 22px;
@@ -471,6 +466,42 @@ function buildRoundHTML(round, ri) {
   `;
 }
 
+function avatarSVG(name, src, size) {
+  // SVG canvas is size + padding for the text arc above
+  const pad = 22;        // space above circle for the curved text
+  const r = size / 2;    // circle radius
+  const cx = r + 2;      // center x (small side margin)
+  const cy = r + pad;    // center y shifted down to make room for text arc
+  const W = size + 4;
+  const H = size + pad + 4;
+  // Arc path for text: sits just outside the top of the circle
+  const tr = r + 10;     // text radius (slightly outside border)
+  // Path goes left-to-right along the top arc
+  const startAngle = -155;
+  const endAngle   = -25;
+  const toRad = a => a * Math.PI / 180;
+  const sx = cx + tr * Math.cos(toRad(startAngle));
+  const sy = cy + tr * Math.sin(toRad(startAngle));
+  const ex = cx + tr * Math.cos(toRad(endAngle));
+  const ey = cy + tr * Math.sin(toRad(endAngle));
+  const pathId = 'ap-' + name.replace(/\s/g,'');
+  const arcPath = 'M ' + sx.toFixed(2) + ' ' + sy.toFixed(2) +
+    ' A ' + tr + ' ' + tr + ' 0 0 1 ' + ex.toFixed(2) + ' ' + ey.toFixed(2);
+  const imgId = 'ci-' + name.replace(/\s/g,'') + '-' + Math.random().toString(36).slice(2,6);
+
+  return '<svg class="avatar-svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">' +
+    '<defs>' +
+      '<clipPath id="' + imgId + '"><circle cx="' + cx + '" cy="' + cy + '" r="' + (r - 2) + '"/></clipPath>' +
+      '<path id="' + pathId + '" d="' + arcPath + '"/>' +
+    '</defs>' +
+    '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="rgba(201,168,76,0.55)" stroke-width="2.5"/>' +
+    '<image href="' + src + '" x="' + (cx - r + 2) + '" y="' + (cy - r + 2) + '" width="' + (size - 4) + '" height="' + (size - 4) + '" clip-path="url(#' + imgId + ')" preserveAspectRatio="xMidYMid slice"/>' +
+    '<text font-family="DM Sans, sans-serif" font-size="11" font-weight="500" fill="#e8c87a" letter-spacing="0.5">' +
+      '<textPath href="#' + pathId + '" startOffset="50%" text-anchor="middle">' + name + '</textPath>' +
+    '</text>' +
+  '</svg>';
+}
+
 function avatarImgTag(p, size) {
   return '<img src="' + AVATARS[p] + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;border:1.5px solid var(--felt);margin-right:-6px;vertical-align:middle;">';
 }
@@ -491,6 +522,11 @@ function buildTableCard(table, ri, ti, label) {
   const a3 = AVATARS[table.t2[0]], n3 = table.t2[0];
   const a4 = AVATARS[table.t2[1]], n4 = table.t2[1];
 
+  const av1 = avatarSVG(n1, a1, 120);
+  const av2 = avatarSVG(n2, a2, 120);
+  const av3 = avatarSVG(n3, a3, 120);
+  const av4 = avatarSVG(n4, a4, 120);
+
   return `
   <div class="table-card" id="card-${ri}-${ti}">
     <div class="table-header">
@@ -501,9 +537,9 @@ function buildTableCard(table, ri, ti, label) {
     <div class="matchup">
       <div class="team-side left">
         <div class="player-row">
-          <img class="avatar" src="${a1}" alt="${n1}" title="${n1}">
+          ${av1}
           <span class="handshake">🤝</span>
-          <img class="avatar" src="${a2}" alt="${n2}" title="${n2}">
+          ${av2}
         </div>
       </div>
       <div class="vs-col">
@@ -524,9 +560,9 @@ function buildTableCard(table, ri, ti, label) {
       </div>
       <div class="team-side right">
         <div class="player-row">
-          <img class="avatar" src="${a3}" alt="${n3}" title="${n3}">
+          ${av3}
           <span class="handshake">🤝</span>
-          <img class="avatar" src="${a4}" alt="${n4}" title="${n4}">
+          ${av4}
         </div>
       </div>
     </div>
