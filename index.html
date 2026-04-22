@@ -501,6 +501,24 @@ function stepScore(ri, ti, side, delta) {
   refreshCard(ri, ti);
   buildRoundNav();
   if (section === 'standings') renderStandings();
+  checkAutoAdvance(ri);
+}
+
+function roundHasWinner(ri, ti) {
+  const s0 = +scores[ri][ti][0];
+  const s1 = +scores[ri][ti][1];
+  return (s0 >= 10 && s0 > s1) || (s1 >= 10 && s1 > s0);
+}
+
+function checkAutoAdvance(ri) {
+  if (ri !== currentRound) return;
+  if (section !== 'rounds') return;
+  if (!roundHasWinner(ri, 0) || !roundHasWinner(ri, 1)) return;
+  const nextRound = ri + 1;
+  if (nextRound >= ROUND_DATA.length) return;
+  setTimeout(() => {
+    switchRound(nextRound);
+  }, 900);
 }
 
 function resetTable(ri, ti) {
