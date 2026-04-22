@@ -420,10 +420,26 @@ const ROUNDS = [
 
 // Group into 7 rounds of 2 tables
 const ROUND_DATA = [];
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 for (let i = 0; i < 7; i++) {
+  // Randomly assign which pairing is table1 vs table2
+  const tables = shuffle([ROUNDS[i*2], ROUNDS[i*2+1]]);
+  // Randomly flip player order within each team, and team order within each table
+  const makeTable = (raw) => {
+    const teams = shuffle([shuffle(raw[0]), shuffle(raw[1])]);
+    return { t1: teams[0], t2: teams[1] };
+  };
   ROUND_DATA.push({
-    table1: { t1: ROUNDS[i*2][0], t2: ROUNDS[i*2][1] },
-    table2: { t1: ROUNDS[i*2+1][0], t2: ROUNDS[i*2+1][1] }
+    table1: makeTable(tables[0]),
+    table2: makeTable(tables[1]),
   });
 }
 
