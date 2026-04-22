@@ -33,7 +33,7 @@
   header {
     background: linear-gradient(180deg, #0a1f15 0%, #0f2a1e 100%);
     border-bottom: 2px solid var(--gold);
-    padding: 14px 28px;
+    padding: 10px 24px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -41,26 +41,26 @@
   }
   .header-title {
     font-family: 'Playfair Display', serif;
-    font-size: 34px;
+    font-size: 26px;
     font-weight: 900;
     color: var(--gold);
     letter-spacing: 0.04em;
     text-shadow: 0 2px 8px rgba(0,0,0,0.6);
   }
   .header-sub {
-    font-size: 13px;
+    font-size: 11px;
     color: var(--cream-dim);
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    margin-top: 2px;
+    margin-top: 1px;
   }
   .round-badge {
     background: var(--gold);
     color: var(--felt);
     font-family: 'Playfair Display', serif;
     font-weight: 700;
-    font-size: 16px;
-    padding: 8px 22px;
+    font-size: 14px;
+    padding: 6px 18px;
     border-radius: 40px;
     letter-spacing: 0.05em;
   }
@@ -68,8 +68,8 @@
   /* ── ROUND NAV ── */
   .round-nav {
     display: flex;
-    gap: 8px;
-    padding: 12px 28px;
+    gap: 6px;
+    padding: 8px 20px;
     background: rgba(0,0,0,0.25);
     border-bottom: 1px solid rgba(201,168,76,0.2);
     flex-shrink: 0;
@@ -79,59 +79,63 @@
   .round-nav::-webkit-scrollbar { display: none; }
   .round-btn {
     flex-shrink: 0;
-    padding: 10px 26px;
+    padding: 7px 20px;
     border-radius: 40px;
     border: 1px solid rgba(201,168,76,0.35);
     background: transparent;
     color: var(--cream-dim);
     font-family: 'DM Sans', sans-serif;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.18s ease;
     letter-spacing: 0.03em;
-    min-height: 52px;
+    min-height: 42px;
   }
   .round-btn:hover { border-color: var(--gold); color: var(--gold); }
   .round-btn.active { background: var(--gold); border-color: var(--gold); color: var(--felt); font-weight: 700; }
   .round-btn.has-scores { border-color: rgba(201,168,76,0.6); }
-  .round-btn.has-scores::after { content: ' ✓'; font-size: 12px; opacity: 0.7; }
+  .round-btn.has-scores::after { content: ' ✓'; font-size: 11px; opacity: 0.7; }
 
   /* ── MAIN ── */
-  #main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  #main { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 
-  .view { display: none; flex: 1; overflow-y: auto; padding: 20px 28px; }
-  .view.active { display: flex; flex-direction: column; gap: 20px; }
+  .view { display: none; flex: 1; overflow: hidden; padding: 12px 20px; min-height: 0; }
+  .view.active { display: flex; flex-direction: column; gap: 12px; }
 
-  /* ── TABLE CARD ── */
+  /* ── TABLE CARD — each takes half the available height ── */
   .table-card {
     background: linear-gradient(160deg, #1c3d2b 0%, rgba(22,48,34,0) 100%);
     border: 1px solid rgba(201,168,76,0.3);
-    border-radius: 20px;
+    border-radius: 16px;
     overflow: hidden;
-    flex-shrink: 0;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
   .table-header {
     background: rgba(201,168,76,0.12);
     border-bottom: 1px solid rgba(201,168,76,0.2);
-    padding: 12px 22px;
+    padding: 8px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
+    flex-shrink: 0;
   }
   .table-name {
-    font-size: 14px;
+    font-size: 13px;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--gold);
     font-weight: 500;
   }
   .winner-badge {
-    font-size: 14px;
+    font-size: 13px;
     background: var(--gold);
     color: var(--felt);
-    padding: 4px 16px;
+    padding: 3px 12px;
     border-radius: 20px;
     font-weight: 700;
     letter-spacing: 0.04em;
@@ -143,46 +147,46 @@
     border: 1px solid rgba(201,168,76,0.25);
     cursor: pointer;
     color: rgba(201,168,76,0.45);
-    font-size: 13px;
+    font-size: 12px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    padding: 6px 14px;
-    border-radius: 8px;
+    padding: 4px 12px;
+    border-radius: 6px;
     transition: all 0.15s;
     font-family: 'DM Sans', sans-serif;
-    min-height: 44px;
-    min-width: 80px;
+    min-height: 36px;
   }
   .table-reset-btn:hover { color: var(--red-light); border-color: var(--red-light); }
 
-  /* ── MATCHUP LAYOUT ── */
+  /* ── MATCHUP LAYOUT — fills the card ── */
   .matchup {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
-    align-items: stretch;
+    flex: 1;
+    min-height: 0;
   }
 
   .team-side {
-    padding: 20px 22px;
+    padding: 10px 18px;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
   }
   .team-side.right { align-items: flex-end; }
 
   .player-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: 22px;
+    gap: 8px;
+    font-size: 20px;
     font-weight: 400;
     color: var(--cream);
     white-space: nowrap;
   }
   .team-side.right .player-row { flex-direction: row-reverse; }
 
-  .pip { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; }
+  .pip { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
 
   /* ── SCORE STEPPER ── */
   .vs-col {
@@ -190,15 +194,15 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 20px 16px;
+    padding: 10px 14px;
     border-left: 1px solid rgba(201,168,76,0.15);
     border-right: 1px solid rgba(201,168,76,0.15);
-    gap: 14px;
+    gap: 8px;
     background: rgba(0,0,0,0.15);
-    min-width: 200px;
+    min-width: 180px;
   }
   .vs-label {
-    font-size: 12px;
+    font-size: 11px;
     color: rgba(201,168,76,0.5);
     text-transform: uppercase;
     letter-spacing: 0.18em;
@@ -206,22 +210,22 @@
   .score-pair {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
   }
   .stepper {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
   }
   .step-btn {
-    width: 52px;
-    height: 52px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     border: 1.5px solid rgba(201,168,76,0.4);
     background: rgba(0,0,0,0.25);
     color: var(--gold);
-    font-size: 26px;
+    font-size: 24px;
     font-weight: 300;
     cursor: pointer;
     display: flex;
@@ -236,15 +240,14 @@
   .step-btn:hover { border-color: var(--gold); background: rgba(201,168,76,0.1); }
   .step-btn.minus { color: rgba(201,168,76,0.55); }
   .score-display {
-    width: 64px;
-    height: 64px;
-    border-radius: 12px;
+    width: 58px;
+    height: 58px;
+    border-radius: 10px;
     border: 1.5px solid rgba(201,168,76,0.4);
     background: rgba(0,0,0,0.3);
     color: var(--cream);
-    font-size: 34px;
+    font-size: 30px;
     font-weight: 300;
-    text-align: center;
     font-family: 'Playfair Display', serif;
     display: flex;
     align-items: center;
@@ -253,9 +256,7 @@
     cursor: default;
   }
   .score-display.winning { color: var(--gold); border-color: var(--gold); }
-  .score-dash { color: rgba(201,168,76,0.35); font-size: 18px; margin: 0 2px; }
-
-  .score-dash { color: rgba(201,168,76,0.4); font-size: 14px; }
+  .score-dash { color: rgba(201,168,76,0.35); font-size: 16px; margin: 0 2px; }
 
   /* ── STANDINGS VIEW ── */
   #standings-view { padding: 20px 28px; }
@@ -290,12 +291,12 @@
   footer { background: rgba(0,0,0,0.4); border-top: 1px solid rgba(201,168,76,0.25); display: flex; flex-shrink: 0; }
   .nav-btn {
     flex: 1;
-    padding: 18px;
+    padding: 12px;
     background: transparent;
     border: none;
     color: var(--cream-dim);
     font-family: 'DM Sans', sans-serif;
-    font-size: 15px;
+    font-size: 13px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     cursor: pointer;
@@ -303,21 +304,19 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 5px;
-    min-height: 72px;
+    gap: 4px;
+    min-height: 58px;
   }
   .nav-btn svg { opacity: 0.6; transition: opacity 0.15s; }
   .nav-btn.active { color: var(--gold); }
   .nav-btn.active svg { opacity: 1; }
   .nav-btn:not(.active):hover { color: var(--cream); }
 
-  /* ── SUIT DECORATION ── */
   .suit-deco { font-size: 36px; opacity: 0.06; position: fixed; pointer-events: none; user-select: none; }
 
-  /* ── RESET BTN ── */
-  .reset-area { padding: 10px 28px 0; display: flex; justify-content: flex-end; flex-shrink: 0; }
+  .reset-area { padding: 6px 20px 0; display: flex; justify-content: flex-end; flex-shrink: 0; }
   .reset-link {
-    font-size: 13px;
+    font-size: 12px;
     color: rgba(201,168,76,0.4);
     background: none;
     border: none;
@@ -325,8 +324,8 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     transition: color 0.15s;
-    padding: 8px 4px;
-    min-height: 44px;
+    padding: 6px 4px;
+    min-height: 36px;
   }
   .reset-link:hover { color: var(--red-light); }
 </style>
@@ -359,11 +358,11 @@
 
   <footer>
     <button class="nav-btn active" id="nav-rounds" onclick="showSection('rounds')">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       Rounds
     </button>
     <button class="nav-btn" id="nav-standings" onclick="showSection('standings')">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Standings
     </button>
   </footer>
