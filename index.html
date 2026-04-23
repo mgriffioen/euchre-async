@@ -605,7 +605,7 @@ function buildTableCard(table, ri, ti, label) {
 
 function stepScore(ri, ti, side, delta) {
   const current = scores[ri][ti][side] === '' ? 0 : +scores[ri][ti][side];
-  const next = Math.max(0, current + delta);
+  const next = ((current + delta) + 11) % 11;
   scores[ri][ti][side] = next;
   save();
   refreshCard(ri, ti);
