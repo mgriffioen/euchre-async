@@ -718,7 +718,8 @@ function showSection(sec) {
 
 function renderStandings() {
   const wins = {};
-  PLAYERS.forEach(p => wins[p] = 0);
+  const points = {};
+  PLAYERS.forEach(p => { wins[p] = 0; points[p] = 0; });
 
   ROUND_DATA.forEach((round, ri) => {
     [round.table1, round.table2].forEach((table, ti) => {
@@ -730,19 +731,33 @@ function renderStandings() {
       const t2wins = s1 !== null && s1 >= 10 && (s0 === null || s1 > s0);
       if (t1wins) table.t1.forEach(p => wins[p]++);
       else if (t2wins) table.t2.forEach(p => wins[p]++);
+      // accumulate points for all players in the game
+      if (s0 !== null) table.t1.forEach(p => points[p] += s0);
+      if (s1 !== null) table.t2.forEach(p => points[p] += s1);
     });
   });
 
-  const sorted = PLAYERS.slice().sort((a, b) => wins[b] - wins[a]);
+  const sorted = PLAYERS.slice().sort((a, b) =>
+    wins[b] !== wins[a] ? wins[b] - wins[a] : points[b] - points[a]
+  );
+
   const maxW = Math.max(...Object.values(wins));
+  // find all players tied at the top by wins
+  const topWins = maxW;
+  const topPoints = Math.max(...sorted.filter(p => wins[p] === topWins).map(p => points[p]));
 
   document.getElementById('standings-list').innerHTML = sorted.map((p, i) => {
-    const isFirst = i === 0 && maxW > 0;
+    const isFirst = maxW > 0 && wins[p] === topWins && points[p] === topPoints;
+    const tiedOnWins = maxW > 0 && wins[p] === topWins && !isFirst;
+    const borderOpacity = isFirst ? '0.7' : tiedOnWins ? '0.45' : '0.3';
     return `<div class="standing-row${isFirst ? ' rank-1' : ''}">
       <div class="rank-num">${isFirst ? '♛' : i+1}</div>
-      <img class="standing-pip" src="${AVATARS[p]}" alt="${p}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(201,168,76,${isFirst?'0.7':'0.3'});flex-shrink:0;">
+      <img src="${AVATARS[p]}" alt="${p}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(201,168,76,${borderOpacity});flex-shrink:0;">
       <div class="standing-name">${p}</div>
-      <div class="standing-wins">${wins[p]}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:1px;">
+        <div class="standing-wins">${wins[p]}</div>
+        <div style="font-size:10px;color:rgba(201,168,76,0.5);letter-spacing:0.06em;">${points[p]} pts</div>
+      </div>
       <div class="wins-label">wins</div>
     </div>`;
   }).join('');
